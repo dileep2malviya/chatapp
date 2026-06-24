@@ -1,0 +1,44 @@
+{
+  "name": "mail",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "test": "cross-env NODE_OPTIONS=--experimental-vm-modules jest",
+    "build": "dotenv -e .env -- tsc -p .",
+    "start": "dotenv -e .env.local -- node dist/index.js",
+    "dev:local": "dotenv -e .env.local -- concurrently \"tsc -w\" \"nodemon dist/index.js\""
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "amqplib": "^2.0.1",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.6",
+    "cross-env": "^10.1.0",
+    "express": "^5.2.1",
+    "mongoose": "^9.7.1",
+    "nodemailer": "^9.0.1",
+    "notenv": "^2.0.3"
+  },
+  "devDependencies": {
+    "@types/amqplib": "^0.10.8",
+    "@types/cookie-parser": "^1.4.10",
+    "@types/cors": "^2.8.19",
+    "@types/dotenv": "^6.1.1",
+    "@types/express": "^5.0.6",
+    "@types/jest": "^30.0.0",
+    "@types/mongoose": "^5.11.96",
+    "@types/nodemailer": "^8.0.1",
+    "@types/supertest": "^7.2.0",
+    "concurrently": "^10.0.3",
+    "dotenv-cli": "^11.0.0",
+    "jest": "^30.4.2",
+    "nodemon": "^3.1.14",
+    "prettier": "^3.8.4",
+    "supertest": "^7.2.2",
+    "ts-jest": "^29.4.11"
+  }
+}

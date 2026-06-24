@@ -1,0 +1,16 @@
+node_modules
+npm-debug.log
+.git
+.gitignore
+README.md
+.env
+.env.local
+.DS_Store
+*.swp
+*.swo
+dist/**/*.map
+# Type declarations
+dist/**/*.d.ts
+dist/**/*.d.ts.map
+# TypeScript sources (if any)
+dist/**/*.ts
