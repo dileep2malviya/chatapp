@@ -1,7 +1,7 @@
 import express from 'express'
 import cors from 'cors'
 import cookieParser from 'cookie-parser'
-import { startSendOtpConsumer } from './config/rabbitmq.js'
+
 
 const app = express()
 
@@ -21,7 +21,6 @@ app.get('/health', async (req, res) => {
     res.status(200).json({ "message": "health checked" })
 })
 
-startSendOtpConsumer()
 export {
     app
 }
