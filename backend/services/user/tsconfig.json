@@ -2,7 +2,6 @@
   "compilerOptions": {
     "rootDir": "./src",
     "outDir": "./dist",
-
     "module": "NodeNext",
     "target": "ESNext",
     "moduleResolution": "NodeNext",
@@ -11,25 +10,18 @@
 
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
-
     "resolveJsonModule": true,
 
-    "sourceMap": false,
-    "declaration": false,
-
     "strict": true,
-
     "isolatedModules": true,
     "skipLibCheck": true
   },
-
   "include": [
-    "src/**/*.ts",
-    "test/**/*.ts"
+    "src/**/*.ts"
   ],
-
   "exclude": [
+    "dist",
     "node_modules",
-    "dist"
+    "test/**/*.ts"
   ]
 }

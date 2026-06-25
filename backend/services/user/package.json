@@ -5,10 +5,11 @@
   "main": "index.js",
   "type": "module",
   "scripts": {
+    "test:test-local": "cross-env NODE_OPTIONS=--experimental-vm-modules APP_ENV=testing jest",
     "test": "cross-env NODE_OPTIONS=--experimental-vm-modules jest",
     "build": "dotenv -e .env -- tsc -p .",
     "start": "dotenv -e .env.local -- node dist/index.js",
-    "dev:local": "dotenv -e .env.local -- concurrently \"tsc -w\" \"nodemon dist/index.js\""
+    "dev:local": "cross-env APP_ENV=local dotenv -e .env.local -- concurrently \"tsc -w\" \"nodemon dist/index.js\""
   },
   "keywords": [],
   "author": "",
