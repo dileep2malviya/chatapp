@@ -25,6 +25,7 @@ const getRedisFunction = async (key:string):Promise<string | null> => {
 
 const checkRedisHealth = async () => {
     try {
+        await connectRedis()
         const result = await redisPublish.ping()
         console.log('Redis ping response:', result)
         return true
