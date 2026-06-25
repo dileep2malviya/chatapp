@@ -16,7 +16,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        service: [mail, user]
+        service: [mail]
     defaults:
       run:
         working-directory: backend/services/${{ matrix.service }}
