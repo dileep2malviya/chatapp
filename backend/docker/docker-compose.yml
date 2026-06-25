@@ -40,6 +40,18 @@ services:
       redis:
         condition: service_healthy
 
+  mail-service:
+    build: ../services/mail
+    env_file:
+      - ../services/mail/.env
+    ports:
+      - "5051:81"
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
 
 
 volumes:
