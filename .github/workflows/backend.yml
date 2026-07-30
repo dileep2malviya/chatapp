@@ -41,7 +41,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        service: [mail, user]
+        service: [ user, mail]
 
     defaults:
       run:
