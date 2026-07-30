@@ -81,6 +81,7 @@ describe("POST /api/user/v1/login", () => {
                 email: "dileep2malviya@gmail.com",
                 password: 'Dileep@123'
             })
+            console.log("res :: ",res)
 
         expect(res.body.message).toBe("User Logged In Successfully");
         expect(res.body.success).toBe(true);

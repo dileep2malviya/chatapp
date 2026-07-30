@@ -48,7 +48,7 @@ const generateResetPasswordToken = async (user: UserDocument): Promise<{ resetPa
 
         return { resetPasswordToken }
     } catch (error) {
-        throw new ApiError(500, "Somthing went wrong while generating access and referesh token", {})
+        throw new ApiError(500, "Somthing went wrong while generating reset password token", {})
     }
 }
 
