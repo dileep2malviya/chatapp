@@ -24,6 +24,7 @@ app.get('/health', async (req, res) => {
     console.log("health")
     res.status(200).json({ "message": "health checked" })
 })
+
 app.use(rateLimitMiddleware)
 app.use('/api/v1/user', userRoutes)
 

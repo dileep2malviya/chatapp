@@ -10,6 +10,7 @@ const corsOption = {
     credentials: true
 } 
 
+
 app.use(cors(corsOption))
 // app.use(express.json({ limit: "20kb" }))
 // app.use(express.urlencoded({ extended: true }))
