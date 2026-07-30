@@ -9,8 +9,6 @@ README.md
 *.swp
 *.swo
 dist/**/*.map
-# Type declarations
 dist/**/*.d.ts
 dist/**/*.d.ts.map
-# TypeScript sources (if any)
 dist/**/*.ts

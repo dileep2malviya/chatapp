@@ -1,5 +1,4 @@
 import amqp, { type Channel } from 'amqplib'
-import nodemailer from 'nodemailer'
 
 const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 
@@ -41,49 +40,8 @@ const connectRabbitMQ = async (): Promise<Channel> => {
     throw new Error('Failed to connect to RabbitMQ')
 }
 
-const startSendOtpConsumer = async (): Promise<void> => {
-    try {
-        const channel = await connectRabbitMQ()
-        const queueName = 'send-otp'
 
-        await channel.assertQueue(queueName, { durable: true })
-        console.log('Connected successfully in email service')
-
-        channel.consume(queueName, async (msg) => {
-            console.log("msg :: ",msg)
-            if (msg) {
-                try {
-                    const { to, subject, body } = JSON.parse(msg.content.toString())
-                    const transporter = nodemailer.createTransport({
-                        host: process.env.EMAIL_HOST_NAME || 'smtp.gmail.com',
-                        port: process.env.EMAIL_PORT_NAME ? parseInt(process.env.EMAIL_PORT_NAME, 10) : 465,
-                        secure: true,
-                        auth: {
-                            user: process.env.EMAIL_HOST_USERNAME || '',
-                            pass: process.env.EMAIL_HOST_PASSWORD || ''
-                        }
-                    })
-
-                    await transporter.sendMail({
-                        from: 'Chat app <no-reply@example.com>',
-                        to,
-                        subject,
-                        text: body
-                    })
-
-                    channel.ack(msg)
-                } catch (error) {
-                    console.log('Email send error :: ', error)
-                    channel.nack(msg, false, false)
-                }
-            }
-        })
-    } catch (error) {
-        console.log('Failed to start OTP consumer :: ', error)
-        throw error
-    }
-}
 
 export {
-    startSendOtpConsumer
+    connectRabbitMQ
 }

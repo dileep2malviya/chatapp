@@ -8,9 +8,6 @@ const errorHandler = (
   next: NextFunction
 ): Response => {
   if (err instanceof ApiError) {
-    console.log('====================================');
-    console.log(err);
-    console.log('====================================');
     return res.status(err.statusCode).json({
       statusCode: err.statusCode,
       message: err.message,

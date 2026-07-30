@@ -1,4 +1,6 @@
-import amqp, { type Channel, type ChannelModel } from 'amqplib'
+import amqp, { type Channel, type ChannelModel, type Options } from 'amqplib'
+import { ApiError } from '../utils/errorApi.js'
+import { EMAIL_DLX } from '../constants/queue.js'
 
 let channel: Channel | null = null
 let connection: ChannelModel | null = null
@@ -51,12 +53,38 @@ const publishMessageToQueue = async (queueName: string, message: any): Promise<v
             channel = await connectRabbitMQ()
         }
 
-        await channel.assertQueue(queueName, { durable: true })
-        channel.sendToQueue(queueName, Buffer.from(JSON.stringify(message)), { persistent: true })
-    } catch (error) {
-        console.log('Failed to connect channel :: ', error)
+        const queueOptions: Options.AssertQueue = {
+            durable: true,
+            arguments: {
+                    "x-dead-letter-exchange": EMAIL_DLX,
+                    "x-dead-letter-routing-key": queueName,
+                },
+        }
+
+        await channel.assertQueue(queueName, queueOptions)
+        channel.sendToQueue(queueName, Buffer.from(JSON.stringify(message)), { persistent: true,expiration: "120000" })
+    } catch (error: unknown) {
+        console.error('Failed to publish message to RabbitMQ queue', queueName, error)
         channel = null
-        throw error
+
+        if (
+            typeof error === 'object' &&
+            error !== null &&
+            'code' in error &&
+            (error as { code: number }).code === 406
+        ) {
+            throw new ApiError(
+                502,
+                'Failed to publish message: queue configuration mismatch. Please verify queue settings and dead-letter exchange.',
+                { queue: 'Queue already exists with different arguments' }
+            )
+        }
+
+        throw new ApiError(
+            502,
+            'Failed to publish message to RabbitMQ.',
+            { queue: 'Unable to enqueue message' }
+        )
     }
 }
 

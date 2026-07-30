@@ -1,13 +1,13 @@
 type ApiResponseType<T> = {
   statusCode: number;
-  data: T;
+  data: T | null;
   message: string;
   success: boolean;
 };
 
 export const apiResponse = <T>(
   statusCode: number,
-  data: T,
+  data: T | null = null,
   message: string = "Success"
 ): ApiResponseType<T> => {
   return {

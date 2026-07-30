@@ -5,21 +5,48 @@ on:
     branches: [main, develop, master]
     paths:
       - "backend/**"
+
   pull_request:
     branches: [main, develop, master]
     paths:
-      - "backend/**"           
+      - "backend/**"
+
 jobs:
   test:
     name: Test (${{ matrix.service }})
     runs-on: ubuntu-latest
+
+    services:
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd="redis-cli ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+      rabbitmq:
+        image: rabbitmq:3-management
+        ports:
+          - 5672:5672
+          - 15672:15672
+        options: >-
+          --health-cmd="rabbitmq-diagnostics check_running"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+
     strategy:
       fail-fast: false
       matrix:
         service: [mail, user]
+
     defaults:
       run:
         working-directory: backend/services/${{ matrix.service }}
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -28,7 +55,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "24"
-          cache: "npm"
+          cache: npm
           cache-dependency-path: backend/services/${{ matrix.service }}/package-lock.json
 
       - name: Install dependencies
@@ -38,7 +65,30 @@ jobs:
         run: npm run lint --if-present
 
       - name: Run tests
-        run: npm test --if-present
+        run: npm run test --if-present
+        env:
+          # Redis
+          REDIS_HOST: 127.0.0.1
+          REDIS_PORT: 6379
 
-      - name: Build (tsc)
+          # RabbitMQ
+          RABBITMQ_HOST_NAME: localhost
+          RABBITMQ_PORT: 5672
+          RABBITMQ_DEFAULT_USER: guest
+          RABBITMQ_DEFAULT_PASS: guest
+
+          # MongoDB
+          MONGO_URL: ${{ secrets.MONGO_URL }}
+
+          # Email
+          EMAIL_HOST_NAME: smtp.gmail.com
+          EMAIL_HOST_USERNAME: ${{ secrets.EMAIL_HOST_USERNAME }}
+          EMAIL_HOST_PASSWORD: ${{ secrets.EMAIL_HOST_PASSWORD }}
+          TURNSTILE_SECRET_KEY: ${{ secrets.TURNSTILE_SECRET_KEY }}
+          CLOUDINARY_CLOUD_NAME: ${{ secrets.CLOUDINARY_CLOUD_NAME }}
+          CLOUDINARY_API_KEY: ${{ secrets.CLOUDINARY_API_KEY }}
+          CLOUDINARY_CLOUD_SECRET: ${{ secrets.CLOUDINARY_CLOUD_SECRET }}
+          CORS_ORIGIN: ${{ secrets.CORS_ORIGIN }}
+
+      - name: Build
         run: npm run build

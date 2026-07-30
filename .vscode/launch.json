@@ -1,0 +1,18 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "Debug User Service",
+      "program": "${workspaceFolder}/backend/services/user/dist/index.js",
+      "cwd": "${workspaceFolder}/backend/services/user",
+      "outFiles": [
+        "${workspaceFolder}/backend/services/user/dist/**/*.js"
+      ],
+      "sourceMaps": true,
+      "console": "integratedTerminal",
+      "stopOnEntry": false
+    }
+  ]
+}
