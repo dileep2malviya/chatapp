@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "test:test-local": "cross-env NODE_OPTIONS=--experimental-vm-modules APP_ENV=testing dotenv -e .env.local jest",
-    "test": "cross-env NODE_OPTIONS=--experimental-vm-modules jest",
+    "test": "cross-env NODE_OPTIONS=--experimental-vm-modules dotenv -e .env jest",
     "build": "dotenv -e .env -- tsc -p .",
     "build:local": "dotenv -e .env.local -- tsc -p .",
     "start": "dotenv -e .env.local -- node dist/index.js",
