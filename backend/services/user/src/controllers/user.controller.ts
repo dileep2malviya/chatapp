@@ -274,7 +274,7 @@ const verifyUser = asyncHandler(async (req, res) => {
                 }
             },
             {
-                new: true
+                returnDocument: "after"
             }
         ).select("_id email isVerified").lean<userVerifyType | null>()
 

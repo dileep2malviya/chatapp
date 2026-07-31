@@ -88,6 +88,7 @@ jobs:
           CLOUDINARY_CLOUD_NAME: ${{ secrets.CLOUDINARY_CLOUD_NAME }}
           CLOUDINARY_API_KEY: ${{ secrets.CLOUDINARY_API_KEY }}
           CLOUDINARY_CLOUD_SECRET: ${{ secrets.CLOUDINARY_CLOUD_SECRET }}
+          ACCESS_TOKEN_SECRET: ${{ secrets.ACCESS_TOKEN_SECRET }}
           CORS_ORIGIN: ${{ secrets.CORS_ORIGIN }}
 
       - name: Build
