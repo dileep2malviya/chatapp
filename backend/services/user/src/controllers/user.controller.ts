@@ -533,87 +533,87 @@ const resetPassword = asyncHandler(async (req, res) => {
     );
 });
 
-const changePassword = asyncHandler(async (req, res) => {
-    const validationResult = changePasswordValidation.safeParse(req.body);
+// const changePassword = asyncHandler(async (req, res) => {
+//     const validationResult = changePasswordValidation.safeParse(req.body);
 
-    if (!validationResult.success) {
-        throw new ApiError(
-            400,
-            "Validation error",
-            preparedErrorObject(validationResult.error.issues)
-        );
-    }
+//     if (!validationResult.success) {
+//         throw new ApiError(
+//             400,
+//             "Validation error",
+//             preparedErrorObject(validationResult.error.issues)
+//         );
+//     }
 
-    const { currentPassword, newPassword } = validationResult.data
+//     const { currentPassword, newPassword } = validationResult.data
 
-    const currentUser: UserDocument | null = await User.findById(req?.user?._id);
+//     const currentUser: UserDocument | null = await User.findById(req?.user?._id);
 
-    if (!currentUser) {
-        throw new ApiError(404, "User not found.");
-    }
+//     if (!currentUser) {
+//         throw new ApiError(404, "User not found.");
+//     }
 
-    const isCurrentPasswordValid = await currentUser.isPasswordCorrect(currentPassword);
+//     const isCurrentPasswordValid = await currentUser.isPasswordCorrect(currentPassword);
 
-    if (!isCurrentPasswordValid) {
-        throw new ApiError(401, "Current password is incorrect.");
-    }
+//     if (!isCurrentPasswordValid) {
+//         throw new ApiError(401, "Current password is incorrect.");
+//     }
 
-    const isSamePassword = await currentUser.isPasswordCorrect(newPassword)
+//     const isSamePassword = await currentUser.isPasswordCorrect(newPassword)
 
-    if (isSamePassword) {
-        throw new ApiError(
-            400,
-            "New password must be different from your current password."
-        );
-    }
+//     if (isSamePassword) {
+//         throw new ApiError(
+//             400,
+//             "New password must be different from your current password."
+//         );
+//     }
 
-    currentUser.password = newPassword
+//     currentUser.password = newPassword
 
-    await currentUser.save();
+//     await currentUser.save();
 
-    currentUser.refreshToken = ""
-    await currentUser.save({ validateBeforeSave: false })
+//     currentUser.refreshToken = ""
+//     await currentUser.save({ validateBeforeSave: false })
 
-    const options: CookieOptions = {
-        httpOnly: true,
-        sameSite: "strict" as const,
-        secure: process.env.NODE_ENV === "production"
-    }
+//     const options: CookieOptions = {
+//         httpOnly: true,
+//         sameSite: "strict" as const,
+//         secure: process.env.NODE_ENV === "production"
+//     }
 
-    return res.status(200)
-        .clearCookie("accessToken", options)
-        .clearCookie("refreshToken", options)
-        .json(
-            apiResponse(
-                200,
-                null,
-                "Password changed successfully. Please log in again."
-            )
-        );
-});
+//     return res.status(200)
+//         .clearCookie("accessToken", options)
+//         .clearCookie("refreshToken", options)
+//         .json(
+//             apiResponse(
+//                 200,
+//                 null,
+//                 "Password changed successfully. Please log in again."
+//             )
+//         );
+// });
 
-const logOutUser = asyncHandler(async (req, res) => {
-    const currentUser: UserDocument | null = await User.findById(req.user._id)
+// const logOutUser = asyncHandler(async (req, res) => {
+//     const currentUser: UserDocument | null = await User.findById(req.user._id)
 
-    if (!currentUser) {
-        throw new ApiError(404, "User not found.");
-    }
+//     if (!currentUser) {
+//         throw new ApiError(404, "User not found.");
+//     }
 
-    currentUser.refreshToken = "";
-    await currentUser.save({ validateBeforeSave: false });
+//     currentUser.refreshToken = "";
+//     await currentUser.save({ validateBeforeSave: false });
 
-    const options: CookieOptions = {
-        httpOnly: true,
-        sameSite: "strict" as const,
-        secure: process.env.NODE_ENV === "production"
-    }
+//     const options: CookieOptions = {
+//         httpOnly: true,
+//         sameSite: "strict" as const,
+//         secure: process.env.NODE_ENV === "production"
+//     }
 
-    return res
-        .status(200)
-        .clearCookie("accessToken", options)
-        .clearCookie("refreshToken", options)
-        .json(apiResponse(200, {}, "User logged Out"))
-})
+//     return res
+//         .status(200)
+//         .clearCookie("accessToken", options)
+//         .clearCookie("refreshToken", options)
+//         .json(apiResponse(200, {}, "User logged Out"))
+// })
 
 export {
     registerUser,
@@ -623,8 +623,8 @@ export {
     ForgotPassword,
     verifyForgotPasswordEmail,
     resetPassword,
-    changePassword,
-    logOutUser
+    // changePassword,
+    // logOutUser
 }
 
 
