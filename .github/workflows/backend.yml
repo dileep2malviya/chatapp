@@ -7,7 +7,7 @@ on:
       - "backend/**"
 
   pull_request:
-    branches: [main, develop, master]
+    branches: [main, master]
     paths:
       - "backend/**"
 
@@ -43,6 +43,9 @@ jobs:
       matrix:
         service: [ user, mail]
 
+    defaults:
+    defaults:
+    defaults:
     defaults:
       run:
         working-directory: backend/services/${{ matrix.service }}
@@ -93,3 +96,37 @@ jobs:
 
       - name: Build
         run: npm run build
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v5
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Create ECR Repository if not exists
+        run: |
+          aws ecr describe-repositories \
+            --repository-names chat-${{ matrix.service }} \
+            || aws ecr create-repository \
+            --repository-name chat-${{ matrix.service }}
+      
+      - name: Build Docker Image
+        run: |
+          docker build \
+            -t chat-${{ matrix.service }} \
+            .
+      
+      - name: Tag Docker Image
+        run: |
+          docker tag chat-${{ matrix.service }} \
+          ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/chat-${{ matrix.service }}:${{ github.sha }}
+
+      - name: Push Docker Image
+        run: |
+          docker push \
+          ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/chat-${{ matrix.service }}:${{ github.sha }}
