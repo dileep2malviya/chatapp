@@ -44,9 +44,6 @@ jobs:
         service: [ user, mail]
 
     defaults:
-    defaults:
-    defaults:
-    defaults:
       run:
         working-directory: backend/services/${{ matrix.service }}
 
