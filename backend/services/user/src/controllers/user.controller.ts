@@ -1,20 +1,20 @@
 import { publishMessageToQueue } from '../config/rabbitmq.js'
 import { checkRateLimit, deleteDataFromRedis, getRedisFunction, setRedisFunction } from '../config/redisConnection.js'
 import { User, UserDocument } from '../models/user.model.js'
-import { decodeType, existingUserLoginType, userExistsSendOtpAgainType, userVerifyType } from '../types/user.types.js'
+import { ActivityAction, decodeType, existingUserLoginType, IUserRequest, userExistsSendOtpAgainType, userVerifyType } from '../types/user.types.js'
 import { uploadOnCloudinary } from '../utils/cloudinary.js'
 import { ApiError, preparedErrorObject } from '../utils/errorApi.js'
 import { apiResponse } from '../utils/responseApi.js'
 import { asyncHandler } from '../utils/asyncHandler.js'
 import { otpVerifyValidation, userLoginValidationType, otpVerifyValidationType, userLoginValidation, userRegisterValidationType, userRegisterValidation, sentOtpAgainValidation, sentOtpAgainValidationType, resetPasswordValidationType, resetPasswordValidation, changePasswordValidation } from '../validation/user.validation.js'
-import { string, z } from "zod";
-import jwt from 'jsonwebtoken'
+import { z } from "zod";
 import { MongoDuplicateKeyErrorTypes } from '../types/mongoErrorType.js'
 import { isReservedUsername } from '../utils/commonvalidation.js'
 import { UploadApiErrorResponse, UploadApiResponse } from 'cloudinary'
 import { tokenDecode } from '../utils/tokoenDecode.js'
 import { CookieOptions, Request, Response } from 'express'
 import { EMAIL_QUEUE } from '../constants/queue.js'
+import { UserActivity } from '../models/activity.model.js'
 
 
 const generateOtp = () => {
@@ -127,6 +127,13 @@ const registerUser = asyncHandler(async (req, res) => {
 
         const createdUser = await User.findById(userResponse._id).select("-password -refreshToken -isDeleted -isActive -isVerified -__v").lean()
 
+        await UserActivity.create({
+            userId: userResponse._id,
+            action: ActivityAction.REGISTER,
+            ip: req.ip,
+            userAgent: req.headers["user-agent"],
+        });
+
         if (!createdUser) {
             throw new ApiError(500, "Something went wrong while registering the user", {})
         }
@@ -141,9 +148,9 @@ const registerUser = asyncHandler(async (req, res) => {
                 to: email,
                 subject: "Your Email Verification Code",
                 text: `${optCode}`
-            }  
+            }
         }
-        
+
         await publishMessageToQueue(EMAIL_QUEUE, message)
         return res.status(201).json(apiResponse(201, createdUser, "User registered successfully"))
     } catch (error) {
@@ -222,6 +229,13 @@ const loginUser = asyncHandler(async (req, res) => {
             secure: process.env.NODE_ENV === "production",
             maxAge: 7 * 24 * 60 * 60 * 1000,
         }
+
+        await UserActivity.create({
+            userId: currentUser._id,
+            action: ActivityAction.LOGIN,
+            ip: req.ip,
+            userAgent: req.headers["user-agent"],
+        });
 
         return res
             .status(200)
@@ -338,9 +352,9 @@ const sentOptAgain = asyncHandler(async (req, res) => {
                 to: email,
                 subject: "Your Email Verification Code",
                 text: `${optCode}`
-            }  
+            }
         }
-        
+
         await publishMessageToQueue(EMAIL_QUEUE, message)
 
         return res.status(200).json(apiResponse(200, null, 'OTP has been sent to your email.'))
@@ -403,9 +417,9 @@ const ForgotPassword = asyncHandler(async (req, res) => {
                 to: email,
                 subject: "Your Email Verification Code",
                 text: `${optCode}`
-            }  
+            }
         }
-        
+
         await publishMessageToQueue(EMAIL_QUEUE, message)
 
         return res.status(200).json(apiResponse(200, null, 'If an account exists for this email, a password reset OTP has been sent.'))
@@ -420,7 +434,7 @@ const verifyForgotPasswordEmail = asyncHandler(async (req, res) => {
         const { email, otp } = req.body ?? {}
         const validationResult: z.ZodSafeParseResult<otpVerifyValidationType> = otpVerifyValidation.safeParse(req.body ?? {})
 
-        console.log("validationResult :: :: ",validationResult)
+        console.log("validationResult :: :: ", validationResult)
         if (!validationResult.success) {
             const errors = preparedErrorObject(validationResult.error.issues)
             throw new ApiError(400, 'Validation error', errors)
@@ -483,8 +497,7 @@ const resetPassword = asyncHandler(async (req, res) => {
 
     const { resetToken, newPassword } = validationResult.data
 
-
-    const decoded: decodeType | null = tokenDecode(resetToken)
+    const decoded = await tokenDecode(resetToken) as decodeType
     if (!decoded) {
         throw new ApiError(401, "Invalid or expired reset token.")
     }
@@ -514,15 +527,22 @@ const resetPassword = asyncHandler(async (req, res) => {
     await deleteDataFromRedis(`reset-password:${decoded._id}`);
 
     const message = {
-            type: 'PASSWORD_CHANGED',
-            payload: {
-                to: currentUser.email,
-                subject: "Your Email Verification Code",
-                text: `"Your password has been changed successfully."`
-            }  
+        type: 'PASSWORD_CHANGED',
+        payload: {
+            to: currentUser.email,
+            subject: "Your Email Verification Code",
+            text: `"Your password has been changed successfully."`
         }
-        
-        await publishMessageToQueue(EMAIL_QUEUE, message)
+    }
+
+    await publishMessageToQueue(EMAIL_QUEUE, message)
+
+    await UserActivity.create({
+        userId: currentUser._id,
+        action: ActivityAction.PASSWORD_RESET,
+        ip: req.ip,
+        userAgent: req.headers["user-agent"],
+    });
 
     return res.status(200).json(
         apiResponse(
@@ -533,87 +553,117 @@ const resetPassword = asyncHandler(async (req, res) => {
     );
 });
 
-// const changePassword = asyncHandler(async (req, res) => {
-//     const validationResult = changePasswordValidation.safeParse(req.body);
+const changePassword = asyncHandler(async (req: IUserRequest, res) => {
+    const validationResult = changePasswordValidation.safeParse(req.body);
 
-//     if (!validationResult.success) {
-//         throw new ApiError(
-//             400,
-//             "Validation error",
-//             preparedErrorObject(validationResult.error.issues)
-//         );
-//     }
+    if (!validationResult.success) {
+        throw new ApiError(
+            400,
+            "Validation error",
+            preparedErrorObject(validationResult.error.issues)
+        );
+    }
 
-//     const { currentPassword, newPassword } = validationResult.data
+    await checkRateLimit({
+        key: `changePassword:${req.ip}`,
+        limit: 50,
+        ttl: 90
+    });
 
-//     const currentUser: UserDocument | null = await User.findById(req?.user?._id);
+    const { currentPassword, newPassword } = validationResult.data
 
-//     if (!currentUser) {
-//         throw new ApiError(404, "User not found.");
-//     }
+    const currentUser: UserDocument | null = await User.findById(req?.user?._id);
 
-//     const isCurrentPasswordValid = await currentUser.isPasswordCorrect(currentPassword);
+    if (!currentUser) {
+        throw new ApiError(401, "Unauthorized");
+    }
 
-//     if (!isCurrentPasswordValid) {
-//         throw new ApiError(401, "Current password is incorrect.");
-//     }
+    const isCurrentPasswordValid = await currentUser.isPasswordCorrect(currentPassword);
 
-//     const isSamePassword = await currentUser.isPasswordCorrect(newPassword)
+    if (!isCurrentPasswordValid) {
+        throw new ApiError(400, "Current password is incorrect.");
+    }
 
-//     if (isSamePassword) {
-//         throw new ApiError(
-//             400,
-//             "New password must be different from your current password."
-//         );
-//     }
+    const isSamePassword = await currentUser.isPasswordCorrect(newPassword)
 
-//     currentUser.password = newPassword
+    if (isSamePassword) {
+        throw new ApiError(
+            400,
+            "New password must be different from your current password."
+        );
+    }
 
-//     await currentUser.save();
+    currentUser.password = newPassword
+    currentUser.refreshToken = ""
+    await currentUser.save({ validateBeforeSave: false })
 
-//     currentUser.refreshToken = ""
-//     await currentUser.save({ validateBeforeSave: false })
+    await UserActivity.create({
+        userId: currentUser._id,
+        action: ActivityAction.PASSWORD_CHANGED,
+        ip: req.ip,
+        userAgent: req.headers["user-agent"],
+    });
 
-//     const options: CookieOptions = {
-//         httpOnly: true,
-//         sameSite: "strict" as const,
-//         secure: process.env.NODE_ENV === "production"
-//     }
+    const options: CookieOptions = {
+        httpOnly: true,
+        sameSite: "strict" as const,
+        secure: process.env.NODE_ENV === "production"
+    }
 
-//     return res.status(200)
-//         .clearCookie("accessToken", options)
-//         .clearCookie("refreshToken", options)
-//         .json(
-//             apiResponse(
-//                 200,
-//                 null,
-//                 "Password changed successfully. Please log in again."
-//             )
-//         );
-// });
+    return res.status(200)
+        .clearCookie("refreshToken", options)
+        .json(
+            apiResponse(
+                200,
+                null,
+                "Password changed successfully. Please log in again."
+            )
+        );
+});
 
-// const logOutUser = asyncHandler(async (req, res) => {
-//     const currentUser: UserDocument | null = await User.findById(req.user._id)
+const logOutUser = asyncHandler(async (req: IUserRequest, res) => {
 
-//     if (!currentUser) {
-//         throw new ApiError(404, "User not found.");
-//     }
+    if (!req.user || !req.user._id) {
+        throw new ApiError(401, "Unauthorized access", {});
+    }
 
-//     currentUser.refreshToken = "";
-//     await currentUser.save({ validateBeforeSave: false });
+    const currentUser: UserDocument | null = await User.findById(req.user._id)
 
-//     const options: CookieOptions = {
-//         httpOnly: true,
-//         sameSite: "strict" as const,
-//         secure: process.env.NODE_ENV === "production"
-//     }
+    if (!currentUser) {
+        throw new ApiError(404, "User not found.");
+    }
 
-//     return res
-//         .status(200)
-//         .clearCookie("accessToken", options)
-//         .clearCookie("refreshToken", options)
-//         .json(apiResponse(200, {}, "User logged Out"))
-// })
+    await User.findByIdAndUpdate(
+        req.user._id,
+        {
+            $set: {
+                refreshToken: "",
+                updatedAt: new Date(),
+            }
+        },
+        {
+            runValidators: false
+        }
+    );
+
+    await UserActivity.create({
+        userId: currentUser._id,
+        action: ActivityAction.LOGOUT,
+        ip: req.ip,
+        userAgent: req.headers["user-agent"],
+    });
+
+    const options: CookieOptions = {
+        httpOnly: true,
+        sameSite: "strict" as const,
+        secure: process.env.NODE_ENV === "production"
+    }
+
+    return res
+        .status(200)
+        .clearCookie("refreshToken", options)
+        .json(apiResponse(200, "Logged out successfully.", "Logged out successfully."))
+})
 
 export {
     registerUser,
@@ -623,8 +673,8 @@ export {
     ForgotPassword,
     verifyForgotPasswordEmail,
     resetPassword,
-    // changePassword,
-    // logOutUser
+    changePassword,
+    logOutUser
 }
 
 

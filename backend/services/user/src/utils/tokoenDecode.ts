@@ -1,16 +1,18 @@
 import jwt from 'jsonwebtoken';
 import { decodeType } from '../types/user.types.js';
+import { ApiError } from './errorApi.js';
 
-const scretKey:string  = process.env.ACCESS_TOKEN_SECRET ?? ""
+const scretKey:string = process.env.ACCESS_TOKEN_SECRET ?? ""
 
-const tokenDecode = (token: string): decodeType | null   => {
+const tokenDecode = async (token: string): Promise<decodeType | null | unknown> => {
 	if (!token) return null;
 
 	try {
-		const decoded = jwt.verify(token,scretKey) as { [key: string]: any };
+		const decoded = await jwt.verify(token,scretKey) as { [key: string]: any };
 		return decoded.data;
 	} catch (err) {
-		return null;
+		console.error('Error decoding token:', err);
+		throw new ApiError(401, 'Unauthorized access', err as Record<string, string>);
 	}
 }
 

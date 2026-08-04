@@ -2,19 +2,7 @@ import mongoose, { Document, Schema, HydratedDocument,Model } from 'mongoose'
 import bcrypt from 'bcrypt'
 import jwt from 'jsonwebtoken'
 import { ApiError } from '../utils/errorApi.js'
-
-export interface IUser extends Document {
-    username: string,
-    email: string,
-    firstName: string,
-    lastName: string,
-    avatar: string,
-    password: string,
-    refreshToken: string,
-    isVerified: boolean,
-    isActive: boolean,
-    isDeleted: boolean,
-}
+import { IUser } from '../types/user.types.js';
 
 export interface IUserMethods {
     isPasswordCorrect(password: string): Promise<boolean>;
@@ -78,6 +66,7 @@ const userSchema: Schema<IUser> = new Schema<IUser, Model<IUser>, IUserMethods>(
 userSchema.pre("save", async function (this: HydratedDocument<IUser>) {
     if (!this.isModified("password")) return;
     this.password = await bcrypt.hash(this.password, 10)
+    this.updatedAt = new Date()
 })
 
 userSchema.methods.isPasswordCorrect = async function (password:string):Promise<boolean>{

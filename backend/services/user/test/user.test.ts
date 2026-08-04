@@ -8,7 +8,7 @@ import { connectRedis, redisClient } from "../src/config/redisConnection.js";
 beforeAll(async () => {
     await connectDB();
     await connectRedis()
-},20000);
+}, 20000);
 
 afterAll(async () => {
     await mongoose.connection.close();
@@ -58,8 +58,8 @@ describe("POST /api/v1/user/verify", () => {
 describe("POST /api/v1/user/send-otp-again", () => {
     it("sent otp again for new user", async () => {
         const res = await request(app)
-        .post("/api/v1/user/send-otp-again")
-        .send({
+            .post("/api/v1/user/send-otp-again")
+            .send({
                 email: "dileep2malviya@gmail.com"
             })
         expect([
@@ -71,24 +71,24 @@ describe("POST /api/v1/user/send-otp-again", () => {
     },
         20000
     );
-}) 
+})
 
 describe("POST /api/user/v1/login", () => {
     it("Should login user", async () => {
-         const res = await request(app)
+        const res = await request(app)
             .post("/api/v1/user/login")
             .send({
                 email: "dileep2malviya@gmail.com",
                 password: 'Dileep@123'
             })
-            console.log("res :: ",res)
+        console.log("res :: ", res)
 
         expect(res.body.message).toBe("User Logged In Successfully");
         expect(res.body.success).toBe(true);
         expect(res.body.statusCode).toBe(200);
     },
         20000
-    ) 
+    )
 })
 
 describe("POST /api/v1/user/forgot-password", () => {
@@ -126,7 +126,7 @@ describe("POST /api/v1/user/verify-forgot-password-email", () => {
 describe("POST /api/v1/user/reset-password", () => {
     it("should reset the user's password with a valid reset token", async () => {
         const email = "dileep2malviya@gmail.com";
-        
+
         await request(app)
             .post("/api/v1/user/forgot-password")
             .send({ email });
@@ -146,10 +146,59 @@ describe("POST /api/v1/user/reset-password", () => {
                 newPassword: "Dileep@456",
                 confirmPassword: "Dileep@456"
             });
-            
+
 
         expect(res.body.message).toBe("Password has been reset successfully. Please log in again.");
         expect(res.body.success).toBe(true);
         expect(res.body.statusCode).toBe(200);
     }, 20000);
 });
+
+describe("POST /api/v1/user/change-password", () => {
+    it("should allow user to change password", async () => {
+        const loginRes = await request(app)
+            .post("/api/v1/user/login")
+            .send({
+                email: "dileep2malviya@gmail.com",
+                password: "Dileep@456"
+            })
+
+        const token = loginRes.body.data?.accessToken;
+
+        const res = await request(app)
+            .post("/api/v1/user/change-password")
+            .set("Authorization", `Bearer ${token}`)
+            .send({
+                currentPassword: "Dileep@456",
+                newPassword: "Dileep@789",
+                confirmPassword: "Dileep@789"
+            });
+
+            expect(res.body.message).toBe("Password changed successfully. Please log in again.")
+            expect(res.body.success).toBe(true);
+            expect(res.body.statusCode).toBe(200);
+        
+
+    })
+})
+
+describe("POST /api/v1/user/logout", () => {
+    it("Should logout user", async () => {
+        const loginRes = await request(app)
+            .post("/api/v1/user/login")
+            .send({
+                email: "dileep2malviya@gmail.com",
+                password: "Dileep@789"
+            })
+
+        const token = loginRes.body.data?.accessToken;
+
+        const res = await request(app)
+            .post("/api/v1/user/logout-user")
+            .set("Authorization", `Bearer ${token}`)
+
+        expect(res.body.message).toBe("Logged out successfully.")
+        expect(res.body.success).toBe(true);
+        expect(res.body.statusCode).toBe(200);
+    })
+})
