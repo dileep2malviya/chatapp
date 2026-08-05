@@ -20,6 +20,12 @@ interface IUserRequest extends Request {
     user?: IUser
 }
 
+// interface UserParams {
+//     id: string;
+// }
+
+// type IUserRequestParam = Request<UserParams>;
+
 interface existingUserLoginType {
     username?: string | undefined,
     email?: string | undefined
@@ -40,6 +46,15 @@ interface decodeType {
     email: string,
 }
 
+interface userSearchType {
+    isDeleted: boolean;
+    isVerified: boolean;
+    isActive: boolean;
+    _id: { $ne: Types.ObjectId };
+    $or?: object[];
+}
+
+
 export enum ActivityAction {
     LOGIN = "LOGIN",
     LOGOUT = "LOGOUT",
@@ -50,14 +65,20 @@ export enum ActivityAction {
     ACCOUNT_DELETED = "ACCOUNT_DELETED",
 }
 
-export interface IUserActivity extends Document {
+interface IUserActivity extends Document {
     userId: Types.ObjectId,
     action: ActivityAction,
     ip?: string,
     userAgent?: string,
     createdAt: Date,
-    updatedAt: Date
+    updatedAt: Date,
 }
+
+type UpdateProfileData = {
+    firstName?: string;
+    lastName?: string;
+    avatar?: string;
+};
 
 export type {
     existingUserLoginType,
@@ -65,5 +86,10 @@ export type {
     userExistsSendOtpAgainType,
     decodeType,
     IUser,
-    IUserRequest
+    IUserRequest,
+    UpdateProfileData,
+    IUserActivity,
+    userSearchType,
+    // UserParams,
+    // IUserRequestParam
 }

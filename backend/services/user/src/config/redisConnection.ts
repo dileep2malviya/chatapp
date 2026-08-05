@@ -81,7 +81,7 @@ export const checkRateLimit = async ({
         await redisClient.expire(key, ttl);
     }
 
-    if (count > limit) {
+    if (count > 50) {
         const retryAfter = await redisClient.ttl(key);
         throw new ApiError(
             429,

@@ -96,19 +96,47 @@ const userRegisterValidation = z.object({
     password: passwordSchema
 })
 
+const userUpdateValidation = z.object({
+    firstName: z
+        .string()
+        .trim()
+        .max(20, "Maximum 20 characters allowed for first name.")
+        .optional(),
+
+    lastName: z
+        .string()
+        .trim()
+        .max(20, "Maximum 20 characters allowed for last name.")
+        .optional(),
+    avatar: z
+        .string()
+        .optional()
+});
+
+const userSearchValidation = z.object({
+    search: z
+        .string()
+        .trim()
+        .min(1, "Search query must be at least 1 character long.")
+        .max(50),
+});
+
 type userRegisterValidationType = z.infer<typeof userRegisterValidation>
 type userLoginValidationType = z.infer<typeof userLoginValidation>
 type otpVerifyValidationType = z.infer<typeof otpVerifyValidation>
 type sentOtpAgainValidationType = z.infer<typeof sentOtpAgainValidation>
 type resetPasswordValidationType = z.infer<typeof resetPasswordValidation>
 type changePasswordValidationType = z.infer<typeof changePasswordValidation>
-
+type userUpdateValidationType = z.infer<typeof userUpdateValidation>
+type userSearchValidationType = z.infer<typeof userSearchValidation>
 export type {
     userLoginValidationType,
     otpVerifyValidationType,
     userRegisterValidationType,
     sentOtpAgainValidationType,
-    resetPasswordValidationType
+    resetPasswordValidationType,
+    userUpdateValidationType,
+    userSearchValidationType
 }
 
 export {
@@ -117,5 +145,7 @@ export {
     otpVerifyValidation,
     userRegisterValidation,
     resetPasswordValidation,
-    changePasswordValidation
+    changePasswordValidation,
+    userUpdateValidation,
+    userSearchValidation
 }

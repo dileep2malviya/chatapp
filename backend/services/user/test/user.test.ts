@@ -4,6 +4,7 @@ import connectDB from "../src/db/index.js";
 import { app } from "../src/app.js";
 import { beforeAll, afterAll, describe, it, expect } from "@jest/globals";
 import { connectRedis, redisClient } from "../src/config/redisConnection.js";
+import { de } from "zod/v4/locales";
 
 beforeAll(async () => {
     await connectDB();
@@ -198,6 +199,96 @@ describe("POST /api/v1/user/logout", () => {
             .set("Authorization", `Bearer ${token}`)
 
         expect(res.body.message).toBe("Logged out successfully.")
+        expect(res.body.success).toBe(true);
+        expect(res.body.statusCode).toBe(200);
+    })
+})
+
+describe("GET /api/v1/user/get-user-profile", () => {
+    it("Should get user profile", async () => {
+        const loginRes = await request(app)
+            .post("/api/v1/user/login")
+            .send({
+                email: "dileep2malviya@gmail.com",
+                password: "Dileep@789"
+            })
+
+        const token = loginRes.body.data?.accessToken;
+
+        const res = await request(app)
+            .get("/api/v1/user/get-user-profile")
+            .set("Authorization", `Bearer ${token}`)
+
+        expect(res.body.message).toBe("User profile retrieved successfully.")
+        expect(res.body.success).toBe(true);
+        expect(res.body.statusCode).toBe(200);
+    })
+})
+
+describe("POST /api/v1/user/update-user-profile", () => {
+    it("Should update user profile", async () => {
+        const loginRes = await request(app)
+            .post("/api/v1/user/login")
+            .send({
+                email: "dileep2malviya@gmail.com",
+                password: "Dileep@789"
+            })
+
+        const token = loginRes.body.data?.accessToken;
+
+        const res = await request(app)
+            .post("/api/v1/user/update-user-profile")
+            .set("Authorization", `Bearer ${token}`)
+            .send({
+                firstName: "Dileep",
+                lastName: "Lohar",
+            })
+
+        expect(res.body.message).toBe("User profile updated successfully.")
+        expect(res.body.success).toBe(true);
+        expect(res.body.statusCode).toBe(200);
+    })
+})
+
+describe("GET /api/v1/user/get-all-users", () => {
+    it("Should get all users", async () => {
+        const loginRes = await request(app)
+            .post("/api/v1/user/login")
+            .send({
+                email: "dileep2malviya@gmail.com",
+                password: "Dileep@789"
+            })
+
+        const token = loginRes.body.data?.accessToken;
+
+        const res = await request(app)
+            .get("/api/v1/user/get-all-users?search=dileep9malviya")
+            .set("Authorization", `Bearer ${token}`)
+
+        expect(res.body.message).toBe("Users retrieved successfully.")
+        expect(res.body.success).toBe(true);
+        expect(res.body.statusCode).toBe(200);
+    })
+})
+
+describe("GET /api/v1/user/get-userById/:id", () => {
+    it("Should get user by id", async () => {
+        const loginRes = await request(app)
+            .post("/api/v1/user/login")
+            .send({
+                email: "dileep2malviya@gmail.com",
+                password: "Dileep@789"
+            })
+
+        const token = loginRes.body.data?.accessToken;
+
+        const {_id}  = loginRes.body.data?.user;
+
+        const res = await request(app)
+            .get(`/api/v1/user/get-userById/${_id}`)
+            .set("Authorization", `Bearer ${token}`)
+
+        expect(res.body.message).toBe("User retrieved successfully.")
         expect(res.body.success).toBe(true);
         expect(res.body.statusCode).toBe(200);
     })

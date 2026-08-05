@@ -9,6 +9,10 @@ import {
     resetPassword,
     changePassword,
     logOutUser,
+    getUserProfile,
+    updateUserProfile,
+    getUserById,
+    getAllUsers,
     // changePassword,
     // logOutUser
 } from '../controllers/user.controller.js'
@@ -28,6 +32,10 @@ router.route('/verify-forgot-password-email').post(verifyForgotPasswordEmail)
 router.route('/reset-password').post(resetPassword)
 router.route('/change-password').post(verifyJWT, changePassword)
 router.route('/logout-user').post(verifyJWT, logOutUser)
+router.route('/get-user-profile').get(verifyJWT, getUserProfile)
+router.route('/update-user-profile').post(verifyJWT,upload.single("avatar"), updateUserProfile)
+router.route('/get-all-users').get(verifyJWT, getAllUsers)
+router.route('/get-userById/:id').get(getUserById)
 
 
 

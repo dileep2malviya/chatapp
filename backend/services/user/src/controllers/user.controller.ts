@@ -1,20 +1,22 @@
 import { publishMessageToQueue } from '../config/rabbitmq.js'
 import { checkRateLimit, deleteDataFromRedis, getRedisFunction, setRedisFunction } from '../config/redisConnection.js'
 import { User, UserDocument } from '../models/user.model.js'
-import { ActivityAction, decodeType, existingUserLoginType, IUserRequest, userExistsSendOtpAgainType, userVerifyType } from '../types/user.types.js'
+import { ActivityAction, decodeType, existingUserLoginType, IUser, IUserRequest, UpdateProfileData, userExistsSendOtpAgainType, userSearchType, userVerifyType } from '../types/user.types.js'
 import { uploadOnCloudinary } from '../utils/cloudinary.js'
 import { ApiError, preparedErrorObject } from '../utils/errorApi.js'
 import { apiResponse } from '../utils/responseApi.js'
 import { asyncHandler } from '../utils/asyncHandler.js'
-import { otpVerifyValidation, userLoginValidationType, otpVerifyValidationType, userLoginValidation, userRegisterValidationType, userRegisterValidation, sentOtpAgainValidation, sentOtpAgainValidationType, resetPasswordValidationType, resetPasswordValidation, changePasswordValidation } from '../validation/user.validation.js'
+import { otpVerifyValidation, userLoginValidationType, otpVerifyValidationType, userLoginValidation, userRegisterValidationType, userRegisterValidation, sentOtpAgainValidation, sentOtpAgainValidationType, resetPasswordValidationType, resetPasswordValidation, changePasswordValidation, userUpdateValidation, userSearchValidation } from '../validation/user.validation.js'
 import { z } from "zod";
 import { MongoDuplicateKeyErrorTypes } from '../types/mongoErrorType.js'
 import { isReservedUsername } from '../utils/commonvalidation.js'
 import { UploadApiErrorResponse, UploadApiResponse } from 'cloudinary'
 import { tokenDecode } from '../utils/tokoenDecode.js'
-import { CookieOptions, Request, Response } from 'express'
+import { CookieOptions } from 'express'
 import { EMAIL_QUEUE } from '../constants/queue.js'
 import { UserActivity } from '../models/activity.model.js'
+import { Types } from 'mongoose'
+import { userFetchflag } from '../constants.js'
 
 
 const generateOtp = () => {
@@ -64,7 +66,7 @@ const registerUser = asyncHandler(async (req, res) => {
         }
         await checkRateLimit({
             key: `userRegister:${email}`,
-            limit: 3,
+            limit: 5,
             ttl: 60
         });
 
@@ -113,8 +115,6 @@ const registerUser = asyncHandler(async (req, res) => {
         // if (!avatar?.url) {
         //     throw new ApiError(400, "Profile picture is required", {})
         // }
-
-        console.log("req.body :: ", req.body)
 
         const userResponse = await User.create({
             firstName,
@@ -186,7 +186,7 @@ const loginUser = asyncHandler(async (req, res) => {
 
         await checkRateLimit({
             key: `login:${email}`,
-            limit: 3,
+            limit: 5,
             ttl: 60
         });
 
@@ -266,7 +266,7 @@ const verifyUser = asyncHandler(async (req, res) => {
 
         await checkRateLimit({
             key: `verify:${email}`,
-            limit: 3,
+            limit: 5,
             ttl: 90
         });
 
@@ -323,7 +323,7 @@ const sentOptAgain = asyncHandler(async (req, res) => {
 
         await checkRateLimit({
             key: `sentOptAgain:${email}`,
-            limit: 3,
+            limit: 5,
             ttl: 120
         });
 
@@ -376,7 +376,7 @@ const ForgotPassword = asyncHandler(async (req, res) => {
 
         await checkRateLimit({
             key: `forgotpassword:${email}`,
-            limit: 3,
+            limit: 5,
             ttl: 120
         });
 
@@ -442,7 +442,7 @@ const verifyForgotPasswordEmail = asyncHandler(async (req, res) => {
 
         await checkRateLimit({
             key: `verifyForgotPassword:${email}`,
-            limit: 3,
+            limit: 5,
             ttl: 90
         });
 
@@ -491,7 +491,7 @@ const resetPassword = asyncHandler(async (req, res) => {
 
     await checkRateLimit({
         key: `resetPassword:${req.ip}`,
-        limit: 3,
+        limit: 5,
         ttl: 90
     });
 
@@ -566,7 +566,7 @@ const changePassword = asyncHandler(async (req: IUserRequest, res) => {
 
     await checkRateLimit({
         key: `changePassword:${req.ip}`,
-        limit: 50,
+        limit: 5,
         ttl: 90
     });
 
@@ -665,6 +665,126 @@ const logOutUser = asyncHandler(async (req: IUserRequest, res) => {
         .json(apiResponse(200, "Logged out successfully.", "Logged out successfully."))
 })
 
+const getUserProfile = asyncHandler(async (req: IUserRequest, res) => {
+    if (!req.user || !req.user._id) {
+        throw new ApiError(401, "Unauthorized access", {});
+    }
+
+    return res.status(200).json(apiResponse(200, req.user, "User profile retrieved successfully."));
+});
+
+const updateUserProfile = asyncHandler(async (req: IUserRequest, res) => {
+
+    if (!req.user?._id) {
+        throw new ApiError(401, "Authentication required.");
+    }
+
+    const { firstName, lastName } = req.body ?? {}
+
+    const validationResult = userUpdateValidation.safeParse(req.body);
+
+    if (!validationResult.success) {
+        const errors = preparedErrorObject(validationResult.error.issues)
+        throw new ApiError(400, 'Validation error', errors)
+    }
+
+    await checkRateLimit({
+        key: `updateUser:${req.user._id}`,
+        limit: 5,
+        ttl: 60
+    });
+
+    const updateData: UpdateProfileData = {}
+
+    const avatarLocalPath: string | undefined = req.file?.path
+
+    let avatar: UploadApiResponse | UploadApiErrorResponse | null = null
+    if (avatarLocalPath) {
+        avatar = await uploadOnCloudinary(avatarLocalPath)
+    }
+
+    if (firstName) updateData.firstName = firstName;
+    if (lastName) updateData.lastName = lastName;
+    if (avatar) updateData.avatar = avatar?.url;
+
+    const currentUser = await User.findByIdAndUpdate(
+        req.user._id,
+        { $set: updateData },
+        { new: true, runValidators: false }
+    ).select("-password -refreshToken -__v").lean();
+
+    if (!currentUser) {
+        throw new ApiError(404, "User not found.");
+    }
+
+    req.user = currentUser;
+
+    await UserActivity.create({
+        userId: currentUser._id,
+        action: ActivityAction.PROFILE_UPDATED,
+        ip: req.ip,
+        userAgent: req.headers["user-agent"],
+    });
+
+    return res.status(200).json(apiResponse(200, req.user, "User profile updated successfully."));
+});
+
+const getAllUsers = asyncHandler(async (req: IUserRequest, res) => {
+    const search = (req.query.search as string)?.trim();
+
+    const validation = userSearchValidation.safeParse(req.query);
+
+    if (!validation.success) {
+        throw new ApiError(
+            400,
+            "Validation error",
+            preparedErrorObject(validation.error.issues)
+        );
+    }
+
+    const filter: userSearchType = {
+        isDeleted: false,
+        isVerified: true,
+        isActive: true,
+        _id: { $ne: req.user!._id },
+    };
+
+    if (search) {
+        filter.$or = [
+            { username: { $regex: search, $options: "i" } },
+        ];
+    }
+
+    const users: IUser[] = await User.find(filter)
+        .select("-password -refreshToken -isVerified -isActive -isDeleted -createdAt -updatedAt -__v")
+        .limit(55)
+        .lean();
+
+    return res.status(200).json(
+        apiResponse(
+            200,
+            users,
+            "Users retrieved successfully."
+        )
+    );
+});
+
+const getUserById = asyncHandler(async (req: IUserRequest, res) => {
+    const userId = req.params.id as string;
+
+    if (!Types.ObjectId.isValid(userId)) {
+        throw new ApiError(400, "Invalid user.");
+    }
+
+    const user: IUser | null = await User.findOne({ _id: userId, ...userFetchflag }).select("-password -refreshToken -__v").lean();
+
+    if (!user) {
+        throw new ApiError(404, "User not found.");
+    }
+
+    return res.status(200).json(apiResponse(200, user, "User retrieved successfully."));
+});
+
 export {
     registerUser,
     loginUser,
@@ -674,7 +794,11 @@ export {
     verifyForgotPasswordEmail,
     resetPassword,
     changePassword,
-    logOutUser
+    getUserProfile,
+    logOutUser,
+    updateUserProfile,
+    getAllUsers,
+    getUserById
 }
 
 
