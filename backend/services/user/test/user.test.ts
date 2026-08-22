@@ -286,7 +286,6 @@ describe("GET /api/v1/user/get-userById/:id", () => {
 
         const res = await request(app)
             .get(`/api/v1/user/get-userById/${_id}`)
-            .set("Authorization", `Bearer ${token}`)
 
         expect(res.body.message).toBe("User retrieved successfully.")
         expect(res.body.success).toBe(true);
