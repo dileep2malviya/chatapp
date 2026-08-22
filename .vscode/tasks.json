@@ -4,9 +4,9 @@
     {
       "label": "Build User Service",
       "type": "shell",
-      "command": "npm run build:local",
+      "command": "npm run dev:local",
       "options": {
-        "cwd": "${workspaceFolder}/backend/services/user"
+        "cwd": "${workspaceFolder}/backend/services/chat"
       },
       "problemMatcher": ["$tsc"],
       "group": {

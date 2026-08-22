@@ -22,7 +22,7 @@ COPY --from=builder build/dist dist/
 
 
 
-EXPOSE 80
+EXPOSE 8080
 
 CMD ["npm", "start"]
 

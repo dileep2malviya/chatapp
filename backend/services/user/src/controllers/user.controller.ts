@@ -1,12 +1,12 @@
 import { publishMessageToQueue } from '../config/rabbitmq.js'
 import { checkRateLimit, deleteDataFromRedis, getRedisFunction, setRedisFunction } from '../config/redisConnection.js'
 import { User, UserDocument } from '../models/user.model.js'
-import { ActivityAction, decodeType, existingUserLoginType, IUser, IUserRequest, UpdateProfileData, userExistsSendOtpAgainType, userSearchType, userVerifyType } from '../types/user.types.js'
+import { ActivityAction, decodeType, existingUserLoginType, IUser, IUserRequest, UpdateProfileData, userBulkType, userExistsSendOtpAgainType, userSearchType, userVerifyType } from '../types/user.types.js'
 import { uploadOnCloudinary } from '../utils/cloudinary.js'
 import { ApiError, preparedErrorObject } from '../utils/errorApi.js'
 import { apiResponse } from '../utils/responseApi.js'
 import { asyncHandler } from '../utils/asyncHandler.js'
-import { otpVerifyValidation, userLoginValidationType, otpVerifyValidationType, userLoginValidation, userRegisterValidationType, userRegisterValidation, sentOtpAgainValidation, sentOtpAgainValidationType, resetPasswordValidationType, resetPasswordValidation, changePasswordValidation, userUpdateValidation, userSearchValidation } from '../validation/user.validation.js'
+import { otpVerifyValidation, userLoginValidationType, otpVerifyValidationType, userLoginValidation, userRegisterValidationType, userRegisterValidation, sentOtpAgainValidation, sentOtpAgainValidationType, resetPasswordValidationType, resetPasswordValidation, changePasswordValidation, userUpdateValidation, userSearchValidation, bulkUsersSchema } from '../validation/user.validation.js'
 import { z } from "zod";
 import { MongoDuplicateKeyErrorTypes } from '../types/mongoErrorType.js'
 import { isReservedUsername } from '../utils/commonvalidation.js'
@@ -769,7 +769,7 @@ const getAllUsers = asyncHandler(async (req: IUserRequest, res) => {
     );
 });
 
-const getUserById = asyncHandler(async (req: IUserRequest, res) => {
+const getUserById = asyncHandler(async (req, res) => {
     const userId = req.params.id as string;
 
     if (!Types.ObjectId.isValid(userId)) {
@@ -785,6 +785,39 @@ const getUserById = asyncHandler(async (req: IUserRequest, res) => {
     return res.status(200).json(apiResponse(200, user, "User retrieved successfully."));
 });
 
+const getUserInBulk = asyncHandler(async (req, res) => {
+    const validationResult = bulkUsersSchema.safeParse(req.body);
+
+    if (!validationResult.success) {
+        throw new ApiError(
+            400,
+            "Validation error",
+            preparedErrorObject(validationResult.error.issues)
+        );
+    }
+
+    const { userIds } = validationResult.data;
+    const uniqueUserIds = [...new Set(userIds)];
+
+    await checkRateLimit({
+        key: `bulkUser:${req.ip}`,
+        limit: 10,
+        ttl: 60
+    });
+
+    const users = await User.find(
+        {
+            _id: { $in: uniqueUserIds },
+        }
+    ).select("username email avatar").lean<userBulkType[]>();
+
+    if (!users) {
+        throw new ApiError(404, "User not found.");
+    }
+
+    return res.status(200).json(apiResponse(200, users, "Users retrieved successfully."));
+});
+
 export {
     registerUser,
     loginUser,
@@ -798,7 +831,8 @@ export {
     logOutUser,
     updateUserProfile,
     getAllUsers,
-    getUserById
+    getUserById,
+    getUserInBulk
 }
 
 

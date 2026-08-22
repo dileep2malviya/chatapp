@@ -20,11 +20,11 @@ describe("POST /api/v1/user/create", () => {
         const res = await request(app)
             .post("/api/v1/user/create")
             .send({
-                firstName: "dileep",
+                firstName: "gotu",
                 lastName: "lohar",
-                username: "dileep2maviya",
-                email: "dileep2malviya@gmail.com",
-                password: "Dileep@123",
+                username: "gotu2lohar",
+                email: "dileep22malviya@gmail.com",
+                password: "Dileep@1223",
             });
 
         expect(res.body.message).toBe("User registered successfully");
@@ -41,7 +41,7 @@ describe("POST /api/v1/user/verify", () => {
         const res = await request(app)
             .post("/api/v1/user/verify")
             .send({
-                email: "dileep2malviya@gmail.com",
+                email: "dileep22malviya@gmail.com",
                 otp: otp,
             });
 
@@ -61,7 +61,7 @@ describe("POST /api/v1/user/send-otp-again", () => {
         const res = await request(app)
             .post("/api/v1/user/send-otp-again")
             .send({
-                email: "dileep2malviya@gmail.com"
+                email: "dileep22malviya@gmail.com"
             })
         expect([
             "User is already verified.",
@@ -79,8 +79,8 @@ describe("POST /api/user/v1/login", () => {
         const res = await request(app)
             .post("/api/v1/user/login")
             .send({
-                email: "dileep2malviya@gmail.com",
-                password: 'Dileep@123'
+                email: "dileep22malviya@gmail.com",
+                password: 'Dileep@1223'
             })
         console.log("res :: ", res)
 
@@ -94,7 +94,7 @@ describe("POST /api/user/v1/login", () => {
 
 describe("POST /api/v1/user/forgot-password", () => {
     it("should send a password reset otp for the user", async () => {
-        const email = "dileep2malviya@gmail.com";
+        const email = "dileep22malviya@gmail.com";
         const res = await request(app)
             .post("/api/v1/user/forgot-password")
             .send({ email });
@@ -110,7 +110,7 @@ describe("POST /api/v1/user/forgot-password", () => {
 
 describe("POST /api/v1/user/verify-forgot-password-email", () => {
     it("should verify the password reset otp and return a reset token", async () => {
-        const email = "dileep2malviya@gmail.com";
+        const email = "dileep22malviya@gmail.com";
         const otp = await redisClient?.get(`forgotPassword:${email}`);
 
         const res = await request(app)
@@ -126,7 +126,7 @@ describe("POST /api/v1/user/verify-forgot-password-email", () => {
 
 describe("POST /api/v1/user/reset-password", () => {
     it("should reset the user's password with a valid reset token", async () => {
-        const email = "dileep2malviya@gmail.com";
+        const email = "dileep22malviya@gmail.com";
 
         await request(app)
             .post("/api/v1/user/forgot-password")
@@ -144,8 +144,8 @@ describe("POST /api/v1/user/reset-password", () => {
             .post("/api/v1/user/reset-password")
             .send({
                 resetToken,
-                newPassword: "Dileep@456",
-                confirmPassword: "Dileep@456"
+                newPassword: "Dileep@4456",
+                confirmPassword: "Dileep@4456"
             });
 
 
@@ -160,8 +160,8 @@ describe("POST /api/v1/user/change-password", () => {
         const loginRes = await request(app)
             .post("/api/v1/user/login")
             .send({
-                email: "dileep2malviya@gmail.com",
-                password: "Dileep@456"
+                email: "dileep22malviya@gmail.com",
+                password: "Dileep@4456"
             })
 
         const token = loginRes.body.data?.accessToken;
@@ -170,9 +170,9 @@ describe("POST /api/v1/user/change-password", () => {
             .post("/api/v1/user/change-password")
             .set("Authorization", `Bearer ${token}`)
             .send({
-                currentPassword: "Dileep@456",
-                newPassword: "Dileep@789",
-                confirmPassword: "Dileep@789"
+                currentPassword: "Dileep@4456",
+                newPassword: "Dileep@7789",
+                confirmPassword: "Dileep@7789"
             });
 
             expect(res.body.message).toBe("Password changed successfully. Please log in again.")
@@ -188,8 +188,8 @@ describe("POST /api/v1/user/logout", () => {
         const loginRes = await request(app)
             .post("/api/v1/user/login")
             .send({
-                email: "dileep2malviya@gmail.com",
-                password: "Dileep@789"
+                email: "dileep22malviya@gmail.com",
+                password: "Dileep@7789"
             })
 
         const token = loginRes.body.data?.accessToken;
@@ -209,8 +209,8 @@ describe("GET /api/v1/user/get-user-profile", () => {
         const loginRes = await request(app)
             .post("/api/v1/user/login")
             .send({
-                email: "dileep2malviya@gmail.com",
-                password: "Dileep@789"
+                email: "dileep22malviya@gmail.com",
+                password: "Dileep@7789"
             })
 
         const token = loginRes.body.data?.accessToken;
@@ -230,8 +230,8 @@ describe("POST /api/v1/user/update-user-profile", () => {
         const loginRes = await request(app)
             .post("/api/v1/user/login")
             .send({
-                email: "dileep2malviya@gmail.com",
-                password: "Dileep@789"
+                email: "dileep22malviya@gmail.com",
+                password: "Dileep@7789"
             })
 
         const token = loginRes.body.data?.accessToken;
@@ -240,8 +240,8 @@ describe("POST /api/v1/user/update-user-profile", () => {
             .post("/api/v1/user/update-user-profile")
             .set("Authorization", `Bearer ${token}`)
             .send({
-                firstName: "Dileep",
-                lastName: "Lohar",
+                firstName: "gotu u",
+                lastName: "lohar",
             })
 
         expect(res.body.message).toBe("User profile updated successfully.")
@@ -255,8 +255,8 @@ describe("GET /api/v1/user/get-all-users", () => {
         const loginRes = await request(app)
             .post("/api/v1/user/login")
             .send({
-                email: "dileep2malviya@gmail.com",
-                password: "Dileep@789"
+                email: "dileep22malviya@gmail.com",
+                password: "Dileep@7789"
             })
 
         const token = loginRes.body.data?.accessToken;
@@ -276,8 +276,8 @@ describe("GET /api/v1/user/get-userById/:id", () => {
         const loginRes = await request(app)
             .post("/api/v1/user/login")
             .send({
-                email: "dileep2malviya@gmail.com",
-                password: "Dileep@789"
+                email: "dileep22malviya@gmail.com",
+                password: "Dileep@7789"
             })
 
         const token = loginRes.body.data?.accessToken;
@@ -289,6 +289,23 @@ describe("GET /api/v1/user/get-userById/:id", () => {
             .set("Authorization", `Bearer ${token}`)
 
         expect(res.body.message).toBe("User retrieved successfully.")
+        expect(res.body.success).toBe(true);
+        expect(res.body.statusCode).toBe(200);
+    })
+})
+
+describe("POST /api/v1/user/bulk",() => {
+    it("get user in bulk", async () => {
+        const res = await request(app)
+            .post(`/api/v1/user/bulk`)
+            .send({
+                userIds : [
+                    "6a84a52eebe36d7b680b1455",
+                    "6a732a0e270b36447dea40b1"
+                ]
+            })
+
+         expect(res.body.message).toBe("Users retrieved successfully.")
         expect(res.body.success).toBe(true);
         expect(res.body.statusCode).toBe(200);
     })

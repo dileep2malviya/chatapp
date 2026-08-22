@@ -33,7 +33,7 @@ services:
     env_file:
       - ../services/user/.env
     ports:
-      - "5050:80"
+      - "5050:8080"
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -45,7 +45,7 @@ services:
     env_file:
       - ../services/mail/.env
     ports:
-      - "5051:81"
+      - "5051:8081"
     depends_on:
       rabbitmq:
         condition: service_healthy

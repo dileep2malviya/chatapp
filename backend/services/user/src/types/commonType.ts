@@ -1,11 +1,11 @@
 export interface TurnstileVerifyResponse {
-  success: boolean;
-  challenge_ts?: string;
-  hostname?: string;
-  "error-codes": string[];
-  action?: string;
-  cdata?: string;
+  success: boolean,
+  challenge_ts?: string,
+  hostname?: string,
+  "error-codes": string[],
+  action?: string,
+  cdata?: string,
   metadata?: {
-    ephemeral_id: string;
-  };
+    ephemeral_id: string
+  }
 }

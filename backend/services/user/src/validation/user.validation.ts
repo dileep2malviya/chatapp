@@ -121,6 +121,12 @@ const userSearchValidation = z.object({
         .max(50),
 });
 
+const bulkUsersSchema = z.object({
+    userIds: z
+        .array(z.string())
+        .min(1, "userIds must contain at least one user ID"),
+});
+
 type userRegisterValidationType = z.infer<typeof userRegisterValidation>
 type userLoginValidationType = z.infer<typeof userLoginValidation>
 type otpVerifyValidationType = z.infer<typeof otpVerifyValidation>
@@ -129,6 +135,8 @@ type resetPasswordValidationType = z.infer<typeof resetPasswordValidation>
 type changePasswordValidationType = z.infer<typeof changePasswordValidation>
 type userUpdateValidationType = z.infer<typeof userUpdateValidation>
 type userSearchValidationType = z.infer<typeof userSearchValidation>
+type bulkUsersSchemaType = z.infer<typeof bulkUsersSchema>
+
 export type {
     userLoginValidationType,
     otpVerifyValidationType,
@@ -136,7 +144,7 @@ export type {
     sentOtpAgainValidationType,
     resetPasswordValidationType,
     userUpdateValidationType,
-    userSearchValidationType
+    userSearchValidationType,
 }
 
 export {
@@ -147,5 +155,6 @@ export {
     resetPasswordValidation,
     changePasswordValidation,
     userUpdateValidation,
-    userSearchValidation
+    userSearchValidation,
+    bulkUsersSchema
 }

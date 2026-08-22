@@ -67,20 +67,16 @@ jobs:
       - name: Run tests
         run: npm run test --if-present
         env:
-          # Redis
           REDIS_HOST: 127.0.0.1
           REDIS_PORT: 6379
 
-          # RabbitMQ
           RABBITMQ_HOST_NAME: localhost
           RABBITMQ_PORT: 5672
           RABBITMQ_DEFAULT_USER: guest
           RABBITMQ_DEFAULT_PASS: guest
 
-          # MongoDB
           MONGO_URL: ${{ secrets.MONGO_URL }}
 
-          # Email
           EMAIL_HOST_NAME: smtp.gmail.com
           EMAIL_HOST_USERNAME: ${{ secrets.EMAIL_HOST_USERNAME }}
           EMAIL_HOST_PASSWORD: ${{ secrets.EMAIL_HOST_PASSWORD }}

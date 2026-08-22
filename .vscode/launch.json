@@ -13,6 +13,19 @@
       "sourceMaps": true,
       "console": "integratedTerminal",
       "stopOnEntry": false
+    },
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "Debug Chat Service",
+      "program": "${workspaceFolder}/backend/services/chat/dist/index.js",
+      "cwd": "${workspaceFolder}/backend/services/chat",
+      "outFiles": [
+        "${workspaceFolder}/backend/services/chat/dist/**/*.js"
+      ],
+      "sourceMaps": true,
+      "console": "integratedTerminal",
+      "stopOnEntry": false
     }
   ]
 }

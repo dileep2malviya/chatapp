@@ -13,6 +13,7 @@ import {
     updateUserProfile,
     getUserById,
     getAllUsers,
+    getUserInBulk,
     // changePassword,
     // logOutUser
 } from '../controllers/user.controller.js'
@@ -36,6 +37,7 @@ router.route('/get-user-profile').get(verifyJWT, getUserProfile)
 router.route('/update-user-profile').post(verifyJWT,upload.single("avatar"), updateUserProfile)
 router.route('/get-all-users').get(verifyJWT, getAllUsers)
 router.route('/get-userById/:id').get(getUserById)
+router.route('/bulk').post(getUserInBulk)
 
 
 

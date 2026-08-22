@@ -54,6 +54,13 @@ interface userSearchType {
     $or?: object[];
 }
 
+interface userBulkType {
+    _id: Types.ObjectId,
+    username: string,
+    email: string,
+    avatar: string,
+}
+
 
 export enum ActivityAction {
     LOGIN = "LOGIN",
@@ -75,9 +82,9 @@ interface IUserActivity extends Document {
 }
 
 type UpdateProfileData = {
-    firstName?: string;
-    lastName?: string;
-    avatar?: string;
+    firstName?: string,
+    lastName?: string,
+    avatar?: string
 };
 
 export type {
@@ -90,6 +97,7 @@ export type {
     UpdateProfileData,
     IUserActivity,
     userSearchType,
+    userBulkType
     // UserParams,
     // IUserRequestParam
 }

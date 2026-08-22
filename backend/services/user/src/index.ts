@@ -4,7 +4,7 @@ import { app } from './app.js'
 import { connectRabbitMQ } from './config/rabbitmq.js'
 import { connectRedis } from './config/redisConnection.js'
 
-const PORT: number | string = process.env.PORT || 80
+const PORT: number | string = process.env.PORT || 8080
 
 await connectRabbitMQ()
 await connectDB()
