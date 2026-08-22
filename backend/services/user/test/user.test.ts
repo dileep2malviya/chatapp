@@ -37,7 +37,7 @@ describe("POST /api/v1/user/create", () => {
 
 describe("POST /api/v1/user/verify", () => {
     it("should verify a new user", async () => {
-        const otp = await redisClient?.get(`opt:dileep2malviya@gmail.com`);
+        const otp = await redisClient?.get(`opt:dileep22malviya@gmail.com`);
         const res = await request(app)
             .post("/api/v1/user/verify")
             .send({
