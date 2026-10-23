@@ -187,7 +187,7 @@ const loginUser = asyncHandler(async (req, res) => {
 
         await checkRateLimit({
             key: `login:${email}`,
-            limit: 5,
+            limit: 10,
             ttl: 60
         });
 
@@ -267,7 +267,7 @@ const verifyUser = asyncHandler(async (req, res) => {
 
     await checkRateLimit({
         key: `verify:${email}`,
-        limit: 2,
+        limit: 10,
         ttl: 90
     })
 
@@ -328,7 +328,7 @@ const sentOptAgainForVerify = asyncHandler(async (req, res) => {
 
         await checkRateLimit({
             key: `sentOptAgain:${email}`,
-            limit: 5,
+            limit: 10,
             ttl: 120
         });
 
@@ -381,7 +381,7 @@ const ForgotPassword = asyncHandler(async (req, res) => {
 
         await checkRateLimit({
             key: `forgotpassword:${email}`,
-            limit: 1,
+            limit: 10,
             ttl: 120
         });
 
@@ -436,7 +436,7 @@ const verifyForgotPasswordEmail = asyncHandler(async (req, res) => {
 
         await checkRateLimit({
             key: `verifyForgotPassword:${email}`,
-            limit: 3,
+            limit: 10,
             ttl: 90
         });
 
@@ -482,7 +482,8 @@ const verifyForgotPasswordEmail = asyncHandler(async (req, res) => {
 
 const resetPassword = asyncHandler(async (req, res) => {
 
-    const resetToken = req.cookies.resetToken;
+    const resetToken = req.cookies.resetToken ?? req.body.resetToken;
+    console.log("resetToken::   ", resetToken)
     if (!resetToken) {
         throw new ApiError(401, "Reset session has expired.");
     }
@@ -498,7 +499,7 @@ const resetPassword = asyncHandler(async (req, res) => {
 
     await checkRateLimit({
         key: `resetPassword:${req.ip}`,
-        limit: 5,
+        limit: 10,
         ttl: 90
     });
 
@@ -583,7 +584,7 @@ const changePassword = asyncHandler(async (req: IUserRequest, res) => {
 
     await checkRateLimit({
         key: `changePassword:${req.ip}`,
-        limit: 5,
+        limit: 10,
         ttl: 90
     });
 
@@ -707,7 +708,7 @@ const updateUserProfile = asyncHandler(async (req: IUserRequest, res) => {
 
     await checkRateLimit({
         key: `updateUser:${req.user._id}`,
-        limit: 5,
+        limit: 10,
         ttl: 60
     });
 

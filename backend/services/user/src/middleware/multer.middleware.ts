@@ -1,4 +1,5 @@
 import multer, { StorageEngine } from "multer";
+import { mkdir } from "node:fs";
 import { Request } from "express";
 import path from "path";
 import { checkImageExtenion } from "../utils/commonvalidation.js";
@@ -10,7 +11,10 @@ const storage: StorageEngine = multer.diskStorage({
     file: Express.Multer.File,
     cb
   ) => {
-    cb(null, "./src/public/temp");
+    const tempDir = path.resolve(process.cwd(), "src/public/temp");
+    mkdir(tempDir, { recursive: true }, (error) => {
+      cb(error, tempDir);
+    });
   },
 
   filename: (
