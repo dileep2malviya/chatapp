@@ -5,6 +5,12 @@ const emailSchema = z.email({
 })
 .transform((value) => value.toLowerCase())
 
+const otpSchema = z
+  .string()
+  .trim()
+  .length(6, "OTP must be 6 digits.")
+  .regex(/^\d+$/, "OTP must contain only numbers.");
+
 const passwordSchema = z
     .string({
         error: "Password is required.",
@@ -27,25 +33,21 @@ const userLoginValidation = z.object({
         .trim()
 })
 const sentOtpAgainValidation = z.object({
-    email: emailSchema
+    email: emailSchema,
+    otpResendAllowedAt: z.string().regex(/^\d+$/).optional(),
 })
 
 const otpVerifyValidation = z.object({
     email: emailSchema,
-    otp: z.string({error: "OTP is required."}).length(6, {
-        error: "OTP must be exactly 6 digits",
-    }).regex(/^\d+$/, {
-        error: "OTP must contain only numbers",
-    })
+    token: z.string({error: "Token is required."})
 })
+const verifyForgotPasswordValidation = z.object({
+    email: emailSchema,
+    otp: otpSchema
+})
+
 const resetPasswordValidation = z
     .object({
-        resetToken: z
-            .string({
-                error: "Reset token is required.",
-            })
-            .trim()
-            .min(1, "Reset token is required."),
 
         newPassword: passwordSchema,
 
@@ -136,6 +138,7 @@ type changePasswordValidationType = z.infer<typeof changePasswordValidation>
 type userUpdateValidationType = z.infer<typeof userUpdateValidation>
 type userSearchValidationType = z.infer<typeof userSearchValidation>
 type bulkUsersSchemaType = z.infer<typeof bulkUsersSchema>
+type verifyForgotPasswordValidationType = z.infer<typeof verifyForgotPasswordValidation>
 
 export type {
     userLoginValidationType,
@@ -145,6 +148,7 @@ export type {
     resetPasswordValidationType,
     userUpdateValidationType,
     userSearchValidationType,
+    verifyForgotPasswordValidationType
 }
 
 export {
@@ -156,5 +160,6 @@ export {
     changePasswordValidation,
     userUpdateValidation,
     userSearchValidation,
-    bulkUsersSchema
+    bulkUsersSchema,
+    verifyForgotPasswordValidation
 }

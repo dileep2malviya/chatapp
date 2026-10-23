@@ -65,7 +65,7 @@ const getRedisFunction = async (key: string): Promise<string | null> => {
 
 export const checkRateLimit = async ({
     key,
-    limit,
+    limit = 20,
     ttl
 }: {
     key: string
@@ -81,7 +81,7 @@ export const checkRateLimit = async ({
         await redisClient.expire(key, ttl);
     }
 
-    if (count > 50) {
+    if (count > limit) {
         const retryAfter = await redisClient.ttl(key);
         throw new ApiError(
             429,
@@ -137,5 +137,4 @@ export {
     getRedisFunction,
     deleteDataFromRedis,
     disconnectRedis,
-
 }

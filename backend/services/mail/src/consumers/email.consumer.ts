@@ -44,11 +44,14 @@ const startEmailConsumer = async (channel: Channel):Promise<void> => {
         }
 
         try {
+            
             await handler(event.payload);
 
             channel.ack(msg);
 
         } catch (error: unknown) {
+
+            console.error("Email handler failed:", error);
 
             const headers = msg.properties.headers ?? {};
             const retries = Number(headers.retries ?? 0);

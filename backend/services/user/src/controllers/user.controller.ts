@@ -1,12 +1,12 @@
 import { publishMessageToQueue } from '../config/rabbitmq.js'
 import { checkRateLimit, deleteDataFromRedis, getRedisFunction, setRedisFunction } from '../config/redisConnection.js'
 import { User, UserDocument } from '../models/user.model.js'
-import { ActivityAction, decodeType, existingUserLoginType, IUser, IUserRequest, UpdateProfileData, userBulkType, userExistsSendOtpAgainType, userSearchType, userVerifyType } from '../types/user.types.js'
+import { ActivityAction, decodeType, existingUserLoginType, ForgotPasswordResponseData, IUser, IUserRequest, UpdateProfileData, userBulkType, userExistsSendOtpAgainType, userSearchType, userVerifyType } from '../types/user.types.js'
 import { uploadOnCloudinary } from '../utils/cloudinary.js'
 import { ApiError, preparedErrorObject } from '../utils/errorApi.js'
 import { apiResponse } from '../utils/responseApi.js'
 import { asyncHandler } from '../utils/asyncHandler.js'
-import { otpVerifyValidation, userLoginValidationType, otpVerifyValidationType, userLoginValidation, userRegisterValidationType, userRegisterValidation, sentOtpAgainValidation, sentOtpAgainValidationType, resetPasswordValidationType, resetPasswordValidation, changePasswordValidation, userUpdateValidation, userSearchValidation, bulkUsersSchema } from '../validation/user.validation.js'
+import { otpVerifyValidation, userLoginValidationType, otpVerifyValidationType, userLoginValidation, userRegisterValidationType, userRegisterValidation, sentOtpAgainValidation, sentOtpAgainValidationType, resetPasswordValidationType, resetPasswordValidation, changePasswordValidation, userUpdateValidation, userSearchValidation, bulkUsersSchema, verifyForgotPasswordValidation, verifyForgotPasswordValidationType } from '../validation/user.validation.js'
 import { z } from "zod";
 import { MongoDuplicateKeyErrorTypes } from '../types/mongoErrorType.js'
 import { isReservedUsername } from '../utils/commonvalidation.js'
@@ -17,17 +17,11 @@ import { EMAIL_QUEUE } from '../constants/queue.js'
 import { UserActivity } from '../models/activity.model.js'
 import { Types } from 'mongoose'
 import { userFetchflag } from '../constants.js'
-
-
-const generateOtp = () => {
-    return Math.floor(100000 + Math.random() * 900000).toString()
-}
+import { sendEmail, sendOtp } from '../utils/sendOtp.js'
+import { validateOtpResendTime } from '../utils/helpers.js'
 
 const getOtpKey = (email: string) => {
     return `opt:${email}`
-}
-const getUserLoginRateLimitKey = (email: string) => {
-    return `userLogin:ratelimit:${email}`
 }
 
 const generateAccessAndRefreshToken = async (user: UserDocument): Promise<{ accessToken: string; refreshToken: string }> => {
@@ -46,7 +40,7 @@ const generateAccessAndRefreshToken = async (user: UserDocument): Promise<{ acce
 
 const generateResetPasswordToken = async (user: UserDocument): Promise<{ resetPasswordToken: string }> => {
     try {
-        const resetPasswordToken = await user.generateAccessToken()
+        const resetPasswordToken = user.generateAccessToken('15m')
 
         return { resetPasswordToken }
     } catch (error) {
@@ -101,7 +95,7 @@ const registerUser = asyncHandler(async (req, res) => {
         }
 
         if (Object.keys(errors).length) {
-            throw new ApiError(409, "Validation failed", errors);
+            throw new ApiError(409, "Registration failed", errors);
         }
 
         const avatarLocalPath: string = req.file?.path ?? ""
@@ -115,8 +109,7 @@ const registerUser = asyncHandler(async (req, res) => {
         // if (!avatar?.url) {
         //     throw new ApiError(400, "Profile picture is required", {})
         // }
-
-        const userResponse = await User.create({
+        const userSave = new User({
             firstName,
             lastName,
             username,
@@ -124,6 +117,19 @@ const registerUser = asyncHandler(async (req, res) => {
             avatar: avatar?.url ? avatar.url : "",
             password
         })
+
+        const token = userSave.generateEmailVerificationToken()
+
+        const userResponse = await userSave.save();
+
+        // const userResponse = await User.create({
+        //     firstName,
+        //     lastName,
+        //     username,
+        //     email,
+        //     avatar: avatar?.url ? avatar.url : "",
+        //     password
+        // })
 
         const createdUser = await User.findById(userResponse._id).select("-password -refreshToken -isDeleted -isActive -isVerified -__v").lean()
 
@@ -138,21 +144,16 @@ const registerUser = asyncHandler(async (req, res) => {
             throw new ApiError(500, "Something went wrong while registering the user", {})
         }
 
-        const optCode = generateOtp()
-        await setRedisFunction(getOtpKey(email), optCode, 600)
-        await setRedisFunction(getUserLoginRateLimitKey(email), "true", 120)
+        const verificationUrl = `${process.env.FRONTEND_URL}/auth/account-verify?email=${encodeURIComponent(email)}&token=${encodeURIComponent(token)}`
 
-        const message = {
-            type: 'OTP',
-            payload: {
-                to: email,
-                subject: "Your Email Verification Code",
-                text: `${optCode}`
-            }
-        }
+        await sendEmail({
+            email,
+            text: verificationUrl,
+            emailType: "WELCOME_USER",
+            subject: "Your Email Verification Url",
+        });
 
-        await publishMessageToQueue(EMAIL_QUEUE, message)
-        return res.status(201).json(apiResponse(201, createdUser, "User registered successfully"))
+        return res.status(201).json(apiResponse(201, null, "User registered successfully"))
     } catch (error) {
         console.log("error catch", error)
         const err = error as MongoDuplicateKeyErrorTypes;
@@ -225,8 +226,8 @@ const loginUser = asyncHandler(async (req, res) => {
 
         const options: CookieOptions = {
             httpOnly: true,
-            sameSite: "strict" as const,
-            secure: process.env.NODE_ENV === "production",
+            secure: process.env.COOKIE_SECURE === "true",
+            sameSite: process.env.COOKIE_SAME_SITE as "lax" | "strict" | "none",
             maxAge: 7 * 24 * 60 * 60 * 1000,
         }
 
@@ -255,71 +256,75 @@ const loginUser = asyncHandler(async (req, res) => {
 })
 
 const verifyUser = asyncHandler(async (req, res) => {
-    try {
-        const { email, otp } = req.body ?? {}
-        const validationResult: z.ZodSafeParseResult<otpVerifyValidationType> = otpVerifyValidation.safeParse(req.body ?? {})
+    const validationResult: z.ZodSafeParseResult<otpVerifyValidationType> = otpVerifyValidation.safeParse(req.body ?? {})
 
-        if (!validationResult.success) {
-            const errors = preparedErrorObject(validationResult.error.issues)
-            throw new ApiError(400, 'Validation error', errors)
-        }
-
-        await checkRateLimit({
-            key: `verify:${email}`,
-            limit: 5,
-            ttl: 90
-        });
-
-        const getKeyOfOtp = getOtpKey(email)
-        const isValidOtp = await getRedisFunction(getKeyOfOtp)
-
-        if (!isValidOtp || isValidOtp !== otp) {
-            throw new ApiError(400, 'Otp is invalid or expired')
-        }
-
-        const currentUser = await User.findOneAndUpdate(
-            {
-                email,
-                isVerified: false
-            },
-            {
-                $set: {
-                    isVerified: true
-                }
-            },
-            {
-                returnDocument: "after"
-            }
-        ).select("_id email isVerified").lean<userVerifyType | null>()
-
-        if (currentUser) {
-            await deleteDataFromRedis(getKeyOfOtp)
-            return res.status(200).json(apiResponse(200, currentUser, "Verified Successfully."))
-        }
-
-        const isExist = await User.exists({ email });
-
-        if (!isExist) {
-            throw new ApiError(404, 'Invalid OTP or email', { error: "Invalid OTP or email" })
-        }
-
-        return res.status(200).json(apiResponse(200, currentUser, "User already Verified."))
-
-    } catch (error) {
-        throw error
+    if (!validationResult.success) {
+        const errors = preparedErrorObject(validationResult.error.issues)
+        throw new ApiError(400, 'Validation error', errors)
     }
+
+    const { email, token } = validationResult.data;
+
+    await checkRateLimit({
+        key: `verify:${email}`,
+        limit: 2,
+        ttl: 90
+    })
+
+    const findUser = await User.findOne({ email }).select("_id email isVerified emailVerifyToken").lean<userVerifyType | null>()
+
+    if (!findUser) {
+        throw new ApiError(404, 'User not found', { error: "Verification failed" })
+    }
+
+    if (findUser.isVerified) {
+        return res.status(200).json(apiResponse(200, findUser, "Account is already verified."))
+    }
+
+    const decodedToken = await tokenDecode(token) as decodeType
+
+    if (!decodedToken || decodedToken.email !== email || decodedToken._id.toString() !== findUser._id.toString() || findUser.emailVerifyToken !== token) {
+        throw new ApiError(400, "Invalid or expired verification link.");
+    }
+
+    const verifiedUser = await User.findOneAndUpdate(
+        {
+            _id: decodedToken._id,
+            email,
+            isVerified: false,
+            emailVerifyToken: token
+        },
+        {
+            $set: {
+                isVerified: true
+            },
+            $unset: {
+                emailVerifyToken: ""
+            }
+        },
+        {
+            returnDocument: "after"
+        }
+    ).select("_id email isVerified").lean<userVerifyType | null>()
+
+    if (!verifiedUser) {
+        throw new ApiError(500, "Unable to verify account.");
+    }
+
+    return res.status(200).json(apiResponse(200, verifiedUser, "Account verified successfully."))
+
 
 })
 
-const sentOptAgain = asyncHandler(async (req, res) => {
-    try {
-        const { email } = req.body ?? {}
+const sentOptAgainForVerify = asyncHandler(async (req, res) => {
         const validationResult: z.ZodSafeParseResult<sentOtpAgainValidationType> = sentOtpAgainValidation.safeParse(req.body ?? {})
 
         if (!validationResult.success) {
             const errors = preparedErrorObject(validationResult.error.issues)
             throw new ApiError(400, 'Validation error', errors)
         }
+
+        const { email } = validationResult.data
 
         await checkRateLimit({
             key: `sentOptAgain:${email}`,
@@ -327,46 +332,41 @@ const sentOptAgain = asyncHandler(async (req, res) => {
             ttl: 120
         });
 
-        const currentUser = await User.findOne({ email }).select("_id isVerified").lean<userExistsSendOtpAgainType | null>()
+        const user = await User.findOne({ email })
 
-        if (!currentUser) {
+        if (!user) {
             return res.status(200).json(
                 apiResponse(
                     200,
                     null,
-                    "If an account exists for this email, an OTP has been sent."
+                    "If an account exists for this email, a verification email has been sent."
                 )
             );
         }
 
-        if (currentUser.isVerified) {
+
+        if (user.isVerified) {
             return res.status(200).json(apiResponse(200, null, 'User is already verified.'))
         }
 
-        const optCode = generateOtp()
-        await setRedisFunction(getOtpKey(email), optCode, 120)
+        const token = user.generateEmailVerificationToken()
 
-        const message = {
-            type: 'OTP',
-            payload: {
-                to: email,
-                subject: "Your Email Verification Code",
-                text: `${optCode}`
-            }
-        }
+        await user.save({validateBeforeSave: false})
 
-        await publishMessageToQueue(EMAIL_QUEUE, message)
+        const verificationUrl = `${process.env.FRONTEND_URL}/auth/account-verify?email=${encodeURIComponent(email)}&token=${encodeURIComponent(token)}`
+
+        await sendEmail({
+            email,
+            text: verificationUrl,
+            emailType: "WELCOME_USER",
+            subject: "Your Email Verification Url",
+        })
 
         return res.status(200).json(apiResponse(200, null, 'OTP has been sent to your email.'))
-
-    } catch (error) {
-        throw error
-    }
 })
 
 const ForgotPassword = asyncHandler(async (req, res) => {
     try {
-        const { email } = req.body ?? {}
         const validationResult: z.ZodSafeParseResult<sentOtpAgainValidationType> = sentOtpAgainValidation.safeParse(req.body ?? {})
 
         if (!validationResult.success) {
@@ -374,55 +374,50 @@ const ForgotPassword = asyncHandler(async (req, res) => {
             throw new ApiError(400, 'Validation error', errors)
         }
 
+        const { email, otpResendAllowedAt } = validationResult.data
+        const resendAllowedAt = Number(otpResendAllowedAt)
+
+        validateOtpResendTime(resendAllowedAt)
+
         await checkRateLimit({
             key: `forgotpassword:${email}`,
-            limit: 5,
+            limit: 1,
             ttl: 120
         });
 
         const currentUser = await User.findOne({ email }).select("_id isVerified isActive isDeleted")
 
-        if (!currentUser) {
+        if (
+            !currentUser ||
+            !currentUser.isActive ||
+            !currentUser.isVerified ||
+            currentUser.isDeleted
+        ) {
             return res.status(200).json(
                 apiResponse(
                     200,
                     null,
                     "If an account exists for this email, a password reset OTP has been sent."
                 )
-            )
-        }
-
-        if (!currentUser.isVerified) {
-            throw new ApiError(
-                403,
-                "Email address is not verified. Please verify your email first.",
-                {}
             );
         }
 
-        if (!currentUser.isActive) {
-            throw new ApiError(403, "Your account is disabled.", {});
+        await sendOtp({
+            email,
+            redisKey: `forgotPassword:${email}`,
+            emailType: "RESET_PASSWORD",
+            subject: "Your Password Reset Code",
+        });
+
+        const nextResendAllowedAt = Date.now() + 120 * 1000;
+
+        const responsedata: ForgotPasswordResponseData = {
+            email,
+            retryAfter: 120,
+            resendAllowedAt: nextResendAllowedAt.toString()
         }
 
-        if (currentUser.isDeleted) {
-            throw new ApiError(403, "Account no longer exists.", {});
-        }
-
-        const optCode = generateOtp()
-        await setRedisFunction(`forgotPassword:${email}`, optCode, 120)
-
-        const message = {
-            type: 'RESET_PASSWORD',
-            payload: {
-                to: email,
-                subject: "Your Email Verification Code",
-                text: `${optCode}`
-            }
-        }
-
-        await publishMessageToQueue(EMAIL_QUEUE, message)
-
-        return res.status(200).json(apiResponse(200, null, 'If an account exists for this email, a password reset OTP has been sent.'))
+        return res.status(200).json(apiResponse(200, responsedata, 'If an account exists for this email, a password reset OTP has been sent.'))
 
     } catch (error) {
         throw error
@@ -432,17 +427,16 @@ const ForgotPassword = asyncHandler(async (req, res) => {
 const verifyForgotPasswordEmail = asyncHandler(async (req, res) => {
     try {
         const { email, otp } = req.body ?? {}
-        const validationResult: z.ZodSafeParseResult<otpVerifyValidationType> = otpVerifyValidation.safeParse(req.body ?? {})
+        const validationResult: z.ZodSafeParseResult<verifyForgotPasswordValidationType> = verifyForgotPasswordValidation.safeParse(req.body ?? {})
 
-        console.log("validationResult :: :: ", validationResult)
         if (!validationResult.success) {
             const errors = preparedErrorObject(validationResult.error.issues)
-            throw new ApiError(400, 'Validation error', errors)
+            throw new ApiError(400, 'Please request a new OTP.', errors)
         }
 
         await checkRateLimit({
             key: `verifyForgotPassword:${email}`,
-            limit: 5,
+            limit: 3,
             ttl: 90
         });
 
@@ -463,15 +457,23 @@ const verifyForgotPasswordEmail = asyncHandler(async (req, res) => {
         const { resetPasswordToken } = await generateResetPasswordToken(currentUser)
 
         await deleteDataFromRedis(redisKey)
-        return res.status(200).json(
-            apiResponse(
-                200,
-                {
-                    resetToken: resetPasswordToken,
-                },
-                "OTP verified successfully. You can now reset your password."
-            )
-        );
+
+        const options: CookieOptions = {
+            httpOnly: true,
+            secure: process.env.COOKIE_SECURE === "true",
+            sameSite: process.env.COOKIE_SAME_SITE as "lax" | "strict" | "none",
+            maxAge: 7 * 24 * 60 * 60 * 1000,
+        }
+
+        return res
+            .cookie("resetToken", resetPasswordToken, options)
+            .status(200).json(
+                apiResponse(
+                    200,
+                    null,
+                    "OTP verified successfully. You can now reset your password."
+                )
+            );
 
     } catch (error) {
         throw error
@@ -479,8 +481,13 @@ const verifyForgotPasswordEmail = asyncHandler(async (req, res) => {
 })
 
 const resetPassword = asyncHandler(async (req, res) => {
-    const validationResult = resetPasswordValidation.safeParse(req.body)
 
+    const resetToken = req.cookies.resetToken;
+    if (!resetToken) {
+        throw new ApiError(401, "Reset session has expired.");
+    }
+
+    const validationResult = resetPasswordValidation.safeParse(req.body)
     if (!validationResult.success) {
         throw new ApiError(
             400,
@@ -495,7 +502,7 @@ const resetPassword = asyncHandler(async (req, res) => {
         ttl: 90
     });
 
-    const { resetToken, newPassword } = validationResult.data
+    const { newPassword } = validationResult.data
 
     const decoded = await tokenDecode(resetToken) as decodeType
     if (!decoded) {
@@ -521,10 +528,12 @@ const resetPassword = asyncHandler(async (req, res) => {
 
     await currentUser.save();
 
-    currentUser.refreshToken = "";
-    await currentUser.save({ validateBeforeSave: false });
+    currentUser.refreshToken = ""
+    await currentUser.save({ validateBeforeSave: false })
 
-    await deleteDataFromRedis(`reset-password:${decoded._id}`);
+    await deleteDataFromRedis(`reset-password:${decoded._id}`)
+
+    // remove c
 
     const message = {
         type: 'PASSWORD_CHANGED',
@@ -544,13 +553,21 @@ const resetPassword = asyncHandler(async (req, res) => {
         userAgent: req.headers["user-agent"],
     });
 
-    return res.status(200).json(
-        apiResponse(
-            200,
-            null,
-            "Password has been reset successfully. Please log in again."
-        )
-    );
+    const options: CookieOptions = {
+        httpOnly: true,
+        secure: process.env.COOKIE_SECURE === "true",
+        sameSite: process.env.COOKIE_SAME_SITE as "lax" | "strict" | "none",
+    }
+
+    return res
+        .clearCookie("resetToken", options)
+        .status(200).json(
+            apiResponse(
+                200,
+                null,
+                "Password has been reset successfully. Please log in again."
+            )
+        );
 });
 
 const changePassword = asyncHandler(async (req: IUserRequest, res) => {
@@ -606,8 +623,8 @@ const changePassword = asyncHandler(async (req: IUserRequest, res) => {
 
     const options: CookieOptions = {
         httpOnly: true,
-        sameSite: "strict" as const,
-        secure: process.env.NODE_ENV === "production"
+        secure: process.env.COOKIE_SECURE === "true",
+        sameSite: process.env.COOKIE_SAME_SITE as "lax" | "strict" | "none",
     }
 
     return res.status(200)
@@ -655,8 +672,8 @@ const logOutUser = asyncHandler(async (req: IUserRequest, res) => {
 
     const options: CookieOptions = {
         httpOnly: true,
-        sameSite: "strict" as const,
-        secure: process.env.NODE_ENV === "production"
+        secure: process.env.COOKIE_SECURE === "true",
+        sameSite: process.env.COOKIE_SAME_SITE as "lax" | "strict" | "none",
     }
 
     return res
@@ -822,7 +839,7 @@ export {
     registerUser,
     loginUser,
     verifyUser,
-    sentOptAgain,
+    sentOptAgainForVerify,
     ForgotPassword,
     verifyForgotPasswordEmail,
     resetPassword,
@@ -834,17 +851,3 @@ export {
     getUserById,
     getUserInBulk
 }
-
-
-// const optCode = generateOtp()
-// await setRedisFunction(getOtpKey(email), optCode, 120)
-// await setRedisFunction(getUserLoginRateLimitKey(email), "true", 120)
-
-// const message = {
-//     to: email,
-//     subject: "Your Verification Code",
-//     body: `Your OTP is ${optCode}. It is valid for 2 minutes`
-// }
-
-// await publishMessageToQueue('send-otp', message)
-// return res.status(200).json(apiResponse(200, 'true', 'OTP sent your mail'))

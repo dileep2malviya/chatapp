@@ -1,4 +1,4 @@
-type EmailType = "OTP" | "PASSWORD_CHANGED";
+type EmailType = "OTP" | "PASSWORD_CHANGED"  | "WELCOME_USER" | "USER_VERIFICATION";
 
 interface EmailOptions {
     to: string;

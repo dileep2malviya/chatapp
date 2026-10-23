@@ -9,6 +9,7 @@ interface IUser extends Document {
     avatar: string,
     password: string,
     refreshToken: string,
+    emailVerifyToken: string,
     isVerified: boolean,
     isActive: boolean,
     isDeleted: boolean,
@@ -35,6 +36,7 @@ interface userVerifyType {
     _id: Types.ObjectId,
     email: string,
     isVerified: boolean,
+    emailVerifyToken?: string,
 }
 
 interface userExistsSendOtpAgainType {
@@ -101,3 +103,9 @@ export type {
     // UserParams,
     // IUserRequestParam
 }
+
+export type ForgotPasswordResponseData = {
+  email: string;
+  retryAfter: number;
+  resendAllowedAt: string;
+};

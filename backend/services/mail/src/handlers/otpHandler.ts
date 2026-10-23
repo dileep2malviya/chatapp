@@ -12,6 +12,8 @@ const otpHandler = async (data: EmailOptions) => {
         "otp.html"
     );
 
+    
+
     let html = await fs.readFile(filePath, "utf-8");
 
     html = html.replace("{{OTP}}", data.text);

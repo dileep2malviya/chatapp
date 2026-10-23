@@ -2,7 +2,6 @@ import {Router} from 'express'
 import { 
     registerUser,
     verifyUser,
-    sentOptAgain,
     loginUser,
     ForgotPassword,
     verifyForgotPasswordEmail,
@@ -14,6 +13,7 @@ import {
     getUserById,
     getAllUsers,
     getUserInBulk,
+    sentOptAgainForVerify,
     // changePassword,
     // logOutUser
 } from '../controllers/user.controller.js'
@@ -22,11 +22,11 @@ import { verifyTurnstile } from '../middleware/verifyTurnstile.middleware.js'
 import { verifyJWT } from '../middleware/auth.middleware.js'
 const router = Router()
 
-router.route('/create').post(upload.single("avatar"), 
+router.route('/register').post(upload.single("avatar"), 
 // verifyTurnstile,
  registerUser)
-router.route('/verify').post(verifyUser)
-router.route('/send-otp-again').post(sentOptAgain)
+router.route('/verify-account').post(verifyUser)
+router.route('/send-verification-otp').post(sentOptAgainForVerify)
 router.route('/login').post(loginUser)
 router.route('/forgot-password').post(ForgotPassword)
 router.route('/verify-forgot-password-email').post(verifyForgotPasswordEmail)

@@ -7,6 +7,8 @@ import {currentDate, currentTime} from "../utils/helpers.js"
 
 const passwordChangedHandler = async (data:EmailOptions) => {
 
+    console.log("Password change email data:", data);
+
     const filePath = path.join(
             process.cwd(),
             "src",

@@ -59,7 +59,7 @@ describe("POST /api/v1/user/verify", () => {
 describe("POST /api/v1/user/send-otp-again", () => {
     it("sent otp again for new user", async () => {
         const res = await request(app)
-            .post("/api/v1/user/send-otp-again")
+            .post("/api/v1/user/send-verification-otp")
             .send({
                 email: "dileep22malviya@gmail.com"
             })
